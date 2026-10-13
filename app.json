@@ -1,0 +1,15 @@
+{
+  "expo":{
+    "name":"Minta Tolong",
+    "slug":"minta-tolong",
+    "version":"1.0.0",
+    "orientation":"portrait",
+    "scheme":"mintatolong",
+    "userInterfaceStyle":"light",
+    "plugins":[
+      "expo-router",
+      ["expo-location",{"locationWhenInUsePermission":"Minta Tolong menggunakan lokasi Anda untuk menemukan bantuan dalam radius 200 meter sampai 2 km."}]
+    ],
+    "android":{"package":"com.mintatolong.app","permissions":["ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION"]}
+  }
+}
