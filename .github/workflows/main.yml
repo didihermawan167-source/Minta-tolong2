@@ -1,27 +1,32 @@
-name: Build APK Minta Tolong
+name: Buat Package Lock
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  lockfile:
     runs-on: ubuntu-latest
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Siapkan Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Pasang dependensi
-        run: npm install
+      - name: Buat package-lock.json
+        run: npm install --package-lock-only --ignore-scripts
 
-      - name: Pasang EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Buat APK Android
-        run: npx eas-cli build --platform android --profile preview --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Simpan package-lock.json ke GitHub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Add package-lock.json" || echo "Tidak ada perubahan"
+          git push
