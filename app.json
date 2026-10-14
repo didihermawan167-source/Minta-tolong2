@@ -1,15 +1,32 @@
 {
-  "expo":{
-    "name":"Minta Tolong",
-    "slug":"minta-tolong",
-    "version":"1.0.0",
-    "orientation":"portrait",
-    "scheme":"mintatolong",
-    "userInterfaceStyle":"light",
-    "plugins":[
-      "expo-router",
-      ["expo-location",{"locationWhenInUsePermission":"Minta Tolong menggunakan lokasi Anda untuk menemukan bantuan dalam radius 200 meter sampai 2 km."}]
-    ],
-    "android":{"package":"com.mintatolong.app","permissions":["ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION"]}
-  }
+"expo": {
+"name": "Minta Tolong",
+"slug": "minta-tolong",
+"version": "1.0.0",
+"orientation": "portrait",
+"scheme": "mintatolong",
+"userInterfaceStyle": "light",
+"owner": "tivanis-team",
+"plugins": [
+"expo-router",
+[
+"expo-location",
+{
+"locationWhenInUsePermission": "Minta Tolong menggunakan lokasi Anda untuk menemukan bantuan dalam radius 200 meter sampai 2 km."
+}
+]
+],
+"android": {
+"package": "com.mintatolong.app",
+"permissions": [
+"ACCESS_COARSE_LOCATION",
+"ACCESS_FINE_LOCATION"
+]
+},
+"extra": {
+"eas": {
+"projectId": "86aebd12-c826-4b4a-a634-26057f4d41c7"
+}
+}
+}
 }
