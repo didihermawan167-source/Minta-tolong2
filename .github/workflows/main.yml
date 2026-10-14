@@ -20,6 +20,11 @@ jobs:
 
       - name: Pasang EAS CLI
         run: npm install -g eas-cli
+  
+      - name: Tautkan proyek EAS
+        run: npx eas-cli init --account tivanis-team --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Buat APK Android
         run: npx eas-cli build --platform android --profile preview --non-interactive
