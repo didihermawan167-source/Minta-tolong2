@@ -20,6 +20,11 @@ jobs:
       - name: Pasang EAS CLI
         run: npm install -g eas-cli
 
+      - name: Periksa akun Expo
+        run: eas whoami
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
       - name: Bangun APK Android
         run: eas build --platform android --profile preview --non-interactive
         env:
