@@ -19,9 +19,13 @@ jobs:
 
       - name: Pasang EAS CLI
         run: npm install -g eas-cli
-
+        
       - name: Periksa akun Expo
-        run: eas whoami
+        run: |
+          echo "Memeriksa akun Expo..."
+          eas whoami
+          echo "Memeriksa akses proyek..."
+          npx eas-cli project:info
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
