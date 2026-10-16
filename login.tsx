@@ -1,6 +1,7 @@
+
 import {useState} from "react";
 import {View,Text,TextInput,Pressable,StyleSheet,Alert} from "react-native";
-import {router} from "expo-router"; import {setItem} from "../lib/storage";
+import {router} from "expo-router"; import {setItem} from "./lib/storage";
 export default function Login(){const[email,setEmail]=useState("");const[pass,setPass]=useState("");
 const go=async()=>{if(!email||!pass)return Alert.alert("Lengkapi","Email dan password wajib diisi.");await setItem("loggedIn","1");await setItem("user",JSON.stringify({name:email.split("@")[0]||"Pengguna",email}));router.replace("/home")};
 return <View style={s.wrap}><Text style={s.logo}>🆘</Text><Text style={s.title}>Minta Tolong</Text><Text style={s.sub}>Bantu orang terdekat, mulai dari sekitar kita.</Text>
