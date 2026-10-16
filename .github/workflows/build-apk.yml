@@ -1,10 +1,12 @@
 name: Build APK Minta Tolong
+
 on:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
@@ -19,17 +21,22 @@ jobs:
 
       - name: Pasang EAS CLI
         run: npm install -g eas-cli
-        
-      - name: Periksa akun Expo
-        run: |
-          echo "Memeriksa akun Expo..."
-          eas whoami
-          echo "Memeriksa akses proyek..."
-          npx eas-cli project:info
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Bangun APK Android
         run: eas build --platform android --profile preview --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Unduh APK dari Expo
+        run: eas build:download --platform android --latest --path ./minta-tolong.apk
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Simpan APK untuk diunduh
+        uses: actions/upload-artifact@v4
+        with:
+          name: minta-tolong-apk
+          path: minta-tolong.apk
+          if-no-files-found: error
+          retention-days: 7
+          
