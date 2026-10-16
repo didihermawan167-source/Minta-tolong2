@@ -28,7 +28,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Unduh APK dari Expo
-        run: eas build:download --platform android --latest --path ./minta-tolong.apk
+        run: eas build:download --platform android --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
