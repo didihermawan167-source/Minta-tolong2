@@ -23,14 +23,14 @@ jobs:
         run: npm install -g eas-cli
 
       - name: Bangun APK Android
-        run: eas build --platform android --profile preview --non-interactive
+        run: eas build --platform android --profile preview --non-interactive --wait --json > build-result.json
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Unduh APK dari Expo
-        run: eas build:download --platform android --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Unduh APK
+        run: |
+          URL=$(node -e "const r=require('./build-result.json'); console.log(Array.isArray(r) ? r[0].artifacts.buildUrl : r.artifacts.buildUrl)")
+          curl -fL "$URL" -o minta-tolong.apk
 
       - name: Simpan APK untuk diunduh
         uses: actions/upload-artifact@v4
@@ -39,4 +39,3 @@ jobs:
           path: minta-tolong.apk
           if-no-files-found: error
           retention-days: 7
-          
