@@ -1,0 +1,69 @@
+app/register.tsx
+import { useState } from "react";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
+import { router } from "expo-router";
+import { setItem } from "../lib/storage";
+
+export default function Register() {
+const [name, setName] = useState("");
+const [email, setEmail] = useState("");
+const [pass, setPass] = useState("");
+
+const go = async () => {
+if (!name || !email || !pass) {
+Alert.alert("Lengkapi", "Semua data wajib diisi.");
+return;
+}
+
+await setItem("loggedIn", "1");
+await setItem("user", JSON.stringify({ name, email }));
+router.replace("/home");
+
+};
+
+return (
+<View style={s.wrap}>
+<Text style={s.title}>Buat Akun</Text>
+
+  <TextInput
+    style={s.input}
+    placeholder="Nama"
+    value={name}
+    onChangeText={setName}
+  />
+  <TextInput
+    style={s.input}
+    placeholder="Email"
+    value={email}
+    onChangeText={setEmail}
+    autoCapitalize="none"
+    keyboardType="email-address"
+  />
+  <TextInput
+    style={s.input}
+    placeholder="Password"
+    value={pass}
+    onChangeText={setPass}
+    secureTextEntry
+  />
+
+  <Pressable style={s.btn} onPress={go}>
+    <Text style={s.bt}>Daftar</Text>
+  </Pressable>
+
+  <Pressable onPress={() => router.replace("/login")}>
+    <Text style={s.link}>Sudah punya akun? Masuk</Text>
+  </Pressable>
+</View>
+
+);
+}
+
+const s = StyleSheet.create({
+wrap: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" },
+title: { fontSize: 28, fontWeight: "800", marginBottom: 25, textAlign: "center" },
+input: { borderWidth: 1, borderColor: "#ddd", borderRadius: 12, padding: 14, marginBottom: 12 },
+btn: { backgroundColor: "#e53935", padding: 15, borderRadius: 12, alignItems: "center" },
+bt: { color: "#fff", fontWeight: "700" },
+link: { textAlign: "center", marginTop: 18, color: "#e53935" }
+});
