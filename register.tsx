@@ -1,6 +1,6 @@
 import {useState} from "react";
 import {View,Text,TextInput,Pressable,StyleSheet,Alert} from "react-native";
-import {router} from "expo-router"; import {setItem} from "../lib/storage";
+import {router} from "expo-router"; import {setItem} from "./lib/storage";
 export default function Register(){const[name,setName]=useState("");const[email,setEmail]=useState("");const[pass,setPass]=useState("");
 const go=async()=>{if(!name||!email||!pass)return Alert.alert("Lengkapi","Semua data wajib diisi.");await setItem("loggedIn","1");await setItem("user",JSON.stringify({name,email}));router.replace("/home")};
 return <View style={s.wrap}><Text style={s.title}>Buat Akun</Text><TextInput style={s.input} placeholder="Nama" value={name} onChangeText={setName}/><TextInput style={s.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none"/><TextInput style={s.input} placeholder="Password" value={pass} onChangeText={setPass} secureTextEntry/><Pressable style={s.btn} onPress={go}><Text style={s.bt}>Daftar</Text></Pressable><Pressable onPress={()=>router.back()}><Text style={s.link}>Sudah punya akun? Masuk</Text></Pressable></View>}
