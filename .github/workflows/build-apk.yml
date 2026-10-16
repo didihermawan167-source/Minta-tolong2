@@ -19,6 +19,9 @@ jobs:
       - name: Pasang dependensi
         run: npm ci
 
+      - name: Periksa kecocokan dependensi Expo
+        run: npx expo install --check
+
       - name: Pasang EAS CLI
         run: npm install -g eas-cli
 
