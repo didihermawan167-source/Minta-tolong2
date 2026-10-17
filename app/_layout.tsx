@@ -1,4 +1,4 @@
-import { Stack, ErrorBoundaryProps } from "expo-router";
+import { Stack, type ErrorBoundaryProps } from "expo-router";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
