@@ -1,7 +1,164 @@
-import {useEffect,useState} from "react";
-import {View,Text,Pressable,StyleSheet,FlatList,Alert} from "react-native"; import * as Location from "expo-location"; import {getItem} from "../lib/storage"; import {router} from "expo-router";
-function distance(a:number,b:number,c:number,d:number){const R=6371000,p=Math.PI/180;const x=(c-a)*p,y=(d-b)*p;const q=Math.sin(x/2)**2+Math.cos(a*p)*Math.cos(c*p)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
-export default function Nearby(){const[data,setData]=useState<any[]>([]);const[r,setR]=useState(2000);
-useEffect(()=>{(async()=>{const p=await Location.requestForegroundPermissionsAsync();if(p.status!=="granted")return;const l=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Balanced});const last=await getItem("lastRequest");let arr:any[]=last?[JSON.parse(last)]:[];arr=arr.map(x=>({...x,distance:Math.round(distance(l.coords.latitude,l.coords.longitude,x.lat,x.lon))})).filter(x=>x.distance<=r);setData(arr)})();},[r]);
-return <View style={s.wrap}><Text style={s.title}>🔎 Bantuan di sekitar</Text><View style={s.chips}>{[200,500,1000,2000].map(x=><Pressable key={x} onPress={()=>setR(x)} style={[s.chip,r===x&&s.sel]}><Text>{x>=1000?x/1000+" km":x+" m"}</Text></Pressable>)}</View><FlatList data={data} ListEmptyComponent={<Text style={s.empty}>Belum ada permintaan dalam radius ini.</Text>} keyExtractor={x=>x.id} renderItem={({item})=><View style={s.card}><Text style={s.kind}>{item.type}</Text><Text style={s.desc}>{item.desc}</Text><Text style={s.dist}>📍 {item.distance} meter • {item.status}</Text><Pressable style={s.btn} onPress={()=>Alert.alert("Bantu orang ini?","Anda akan terhubung dengan peminta.",[{text:"Batal"},{text:"Saya Bisa Membantu",onPress:()=>router.push("/chat")}])}><Text style={s.bt}>SAYA BISA MEMBANTU</Text></Pressable></View>)}/></View>}
-const s=StyleSheet.create({wrap:{flex:1,padding:20,backgroundColor:"#f7f7f7"},title:{fontSize:25,fontWeight:"800",marginBottom:15},chips:{flexDirection:"row",gap:7,marginBottom:15,flexWrap:"wrap"},chip:{borderWidth:1,borderColor:"#ddd",padding:9,borderRadius:18,backgroundColor:"#fff"},sel:{borderColor:"#e53935",backgroundColor:"#ffe3e3"},card:{backgroundColor:"#fff",borderRadius:15,padding:16,marginBottom:12},kind:{fontWeight:"800",color:"#e53935"},desc:{fontSize:16,marginTop:6},dist:{color:"#666",marginVertical:10},btn:{backgroundColor:"#e53935",padding:13,borderRadius:10,alignItems:"center"},bt:{color:"#fff",fontWeight:"800"},empty:{textAlign:"center",color:"#777",marginTop:60}});
+
+import { useEffect, useState } from "react";
+import {
+  View, Text, Pressable, StyleSheet, FlatList, Alert
+} from "react-native";
+import * as Location from "expo-location";
+import { router } from "expo-router";
+import { supabase } from "./lib/supabase";
+
+function distance(a: number, b: number, c: number, d: number) {
+  const R = 6371000;
+  const p = Math.PI / 180;
+  const x = (c - a) * p;
+  const y = (d - b) * p;
+  const q =
+    Math.sin(x / 2) ** 2 +
+    Math.cos(a * p) * Math.cos(c * p) * Math.sin(y / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(q));
+}
+
+export default function Nearby() {
+  const [data, setData] = useState<any[]>([]);
+  const [r, setR] = useState(2000);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      try {
+        const p = await Location.requestForegroundPermissionsAsync();
+        if (p.status !== "granted") {
+          Alert.alert("Lokasi diperlukan", "Izinkan akses lokasi.");
+          return;
+        }
+
+        const l = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const { data: requests, error } = await supabase
+          .from("help_requests")
+          .select("*")
+          .eq("status", "Menunggu")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        const nearby = (requests || [])
+          .filter(
+            (x: any) =>
+              x.latitude != null &&
+              x.longitude != null
+          )
+          .map((x: any) => ({
+            ...x,
+            distance: Math.round(
+              distance(
+                l.coords.latitude,
+                l.coords.longitude,
+                x.latitude,
+                x.longitude
+              )
+            ),
+          }))
+          .filter((x: any) => x.distance <= r);
+
+        if (active) setData(nearby);
+      } catch (error) {
+        Alert.alert(
+          "Gagal memuat",
+          error instanceof Error ? error.message : "Periksa internet."
+        );
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [r]);
+
+  return (
+    <View style={s.wrap}>
+      <Text style={s.title}>🔎 Bantuan di sekitar</Text>
+
+      <View style={s.chips}>
+        {[200, 500, 1000, 2000].map((x) => (
+          <Pressable
+            key={x}
+            onPress={() => setR(x)}
+            style={[s.chip, r === x && s.sel]}
+          >
+            <Text>{x >= 1000 ? x / 1000 + " km" : x + " m"}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <FlatList
+        data={data}
+        keyExtractor={(item) => String(item.id)}
+        ListEmptyComponent={
+          <Text style={s.empty}>
+            {loading ? "Memuat permintaan..." : "Belum ada permintaan dalam radius ini."}
+          </Text>
+        }
+        renderItem={({ item }) => (
+          <View style={s.card}>
+            <Text style={s.kind}>{item.request_type}</Text>
+            <Text style={s.desc}>{item.description}</Text>
+            <Text style={s.dist}>
+              📍 {item.distance} meter • {item.status}
+            </Text>
+            <Pressable
+              style={s.btn}
+              onPress={() =>
+                Alert.alert(
+                  "Bantu orang ini?",
+                  "Anda akan terhubung dengan peminta.",
+                  [
+                    { text: "Batal" },
+                    {
+                      text: "Saya Bisa Membantu",
+                      onPress: () => router.push("/chat"),
+                    },
+                  ]
+                )
+              }
+            >
+              <Text style={s.bt}>SAYA BISA MEMBANTU</Text>
+            </Pressable>
+          </View>
+        )}
+      />
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  wrap: { flex: 1, padding: 20, backgroundColor: "#f7f7f7" },
+  title: { fontSize: 25, fontWeight: "800", marginBottom: 15 },
+  chips: { flexDirection: "row", gap: 7, marginBottom: 15, flexWrap: "wrap" },
+  chip: {
+    borderWidth: 1, borderColor: "#ddd", padding: 9,
+    borderRadius: 18, backgroundColor: "#fff",
+  },
+  sel: { borderColor: "#e53935", backgroundColor: "#ffe3e3" },
+  card: {
+    backgroundColor: "#fff", borderRadius: 15,
+    padding: 16, marginBottom: 12,
+  },
+  kind: { fontWeight: "800", color: "#e53935" },
+  desc: { fontSize: 16, marginTop: 6 },
+  dist: { color: "#666", marginVertical: 10 },
+  btn: {
+    backgroundColor: "#e53935", padding: 13,
+    borderRadius: 10, alignItems: "center",
+  },
+  bt: { color: "#fff", fontWeight: "800" },
+  empty: { textAlign: "center", color: "#777", marginTop: 60 },
+});
+      
