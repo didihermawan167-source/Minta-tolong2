@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import * as Location from "expo-location";
-import { supabase } from "../lib/supabase";
+import { supabase } from "./lib/supabase";
 
 const radii = [200, 500, 1000, 2000];
 
