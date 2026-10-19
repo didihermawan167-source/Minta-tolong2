@@ -8,6 +8,7 @@ StyleSheet,
 Alert,
 } from "react-native";
 import { router } from "expo-router";
+import * as Location from "expo-location";
 import { supabase } from "../lib/supabase";
 
 export default function Request() {
@@ -22,12 +23,29 @@ return;
 }
 
 setLoading(true);
+
 try {
+  const permission = await Location.requestForegroundPermissionsAsync();
+
+  if (permission.status !== "granted") {
+    Alert.alert(
+      "Izin lokasi diperlukan",
+      "Izinkan Minta Tolong mengakses lokasi HP agar permintaan bisa dikirim."
+    );
+    return;
+  }
+
+  const position = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.Balanced,
+  });
+
   const { error } = await supabase.from("help_requests").insert({
     request_type: title.trim(),
     description: description.trim(),
     radius_m: 200,
-    status: "Menunggu bantuan",
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    status: "Menunggu",
   });
 
   if (error) {
@@ -37,11 +55,16 @@ try {
 
   Alert.alert(
     "Berhasil",
-    "Permintaan bantuan sudah dikirim ke Supabase.",
+    "Permintaan bantuan sudah dikirim ke server.",
     [{ text: "OK", onPress: () => router.replace("/home") }]
   );
-} catch {
-  Alert.alert("Gagal", "Periksa koneksi internet lalu coba lagi.");
+} catch (error) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Periksa koneksi internet dan pengaturan lokasi HP.";
+
+  Alert.alert("Gagal", message);
 } finally {
   setLoading(false);
 }
@@ -74,11 +97,11 @@ Jelaskan bantuan yang sedang kamu butuhkan.
   />
 
   <Text style={s.note}>
-    Permintaan akan dikirim ke server agar bisa dibaca pengguna lain sesuai izin akses.
+    Lokasi HP akan disertakan saat permintaan dikirim ke server.
   </Text>
 
   <Pressable
-    style={s.button}
+    style={[s.button, loading && s.disabled]}
     onPress={sendRequest}
     disabled={loading}
   >
@@ -117,6 +140,7 @@ borderRadius: 12,
 alignItems: "center",
 marginTop: 22,
 },
+disabled: { opacity: 0.6 },
 buttonText: { color: "#fff", fontWeight: "800" },
 back: { alignItems: "center", padding: 18 },
 });
