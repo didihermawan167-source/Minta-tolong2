@@ -22,6 +22,9 @@ jobs:
       - name: Periksa kecocokan dependensi Expo
         run: npx expo install --check
 
+      - name: Periksa kode aplikasi
+        run: npx expo export --platform android
+
       - name: Pasang EAS CLI
         run: npm install -g eas-cli
 
