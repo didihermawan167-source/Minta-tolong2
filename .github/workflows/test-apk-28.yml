@@ -1,0 +1,95 @@
+
+name: Uji APK 28 di Emulator Android
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  test-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Ambil kode proyek
+        uses: actions/checkout@v4
+
+      - name: Unduh APK 28
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 39358164449 \
+            --name minta-tolong-apk \
+            --dir artifact
+
+          APK=$(find artifact -type f -name '*.apk' -print -quit)
+          test -n "$APK"
+          mkdir -p test-results
+          cp "$APK" test-results/minta-tolong.apk
+
+      - name: Jalankan emulator dan uji APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          script: |
+            set +e
+            APK="$GITHUB_WORKSPACE/test-results/minta-tolong.apk"
+            SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+            mkdir -p "$GITHUB_WORKSPACE/test-results"
+
+            AAPT=$(find "$SDK/build-tools" -type f -name aapt -print -quit)
+            "$AAPT" dump badging "$APK" \
+              > "$GITHUB_WORKSPACE/test-results/apk-info.txt" 2>&1
+
+            PACKAGE=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" \
+              "$GITHUB_WORKSPACE/test-results/apk-info.txt" | head -n 1)
+
+            echo "Package: $PACKAGE"
+            adb install -r "$APK" \
+              > "$GITHUB_WORKSPACE/test-results/install.txt" 2>&1
+            INSTALL_CODE=$?
+            cat "$GITHUB_WORKSPACE/test-results/install.txt"
+
+            if [ "$INSTALL_CODE" -eq 0 ] && [ -n "$PACKAGE" ]; then
+              adb shell monkey -p "$PACKAGE" 1 \
+                > "$GITHUB_WORKSPACE/test-results/launch.txt" 2>&1
+              sleep 20
+
+              adb shell pidof "$PACKAGE" \
+                > "$GITHUB_WORKSPACE/test-results/app-pid.txt" 2>&1
+
+              adb shell screencap -p /sdcard/test.png
+              adb pull /sdcard/test.png \
+                "$GITHUB_WORKSPACE/test-results/screenshot.png"
+            fi
+
+            adb logcat -d -t 5000 \
+              > "$GITHUB_WORKSPACE/test-results/logcat.txt"
+
+            if [ "$INSTALL_CODE" -ne 0 ]; then
+              echo "GAGAL: APK tidak bisa dipasang."
+              exit 1
+            fi
+
+            if [ ! -s "$GITHUB_WORKSPACE/test-results/app-pid.txt" ]; then
+              echo "GAGAL: proses aplikasi tidak terdeteksi."
+              exit 1
+            fi
+
+            echo "LULUS: APK terpasang dan proses aplikasi terdeteksi."
+
+      - name: Simpan hasil pengujian
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hasil-uji-apk-28
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
+          
