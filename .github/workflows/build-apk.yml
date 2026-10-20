@@ -38,17 +38,27 @@ jobs:
           URL=$(node -e "const r=require('./build-result.json'); console.log(Array.isArray(r) ? r[0].artifacts.buildUrl : r.artifacts.buildUrl)")
           curl -fL "$URL" -o minta-tolong.apk
 
-      - name: Periksa keutuhan APK
+      
+      - name: Periksa keutuhan APK dan tanda tangan
         run: |
           set -e
           test -s minta-tolong.apk
           unzip -tq minta-tolong.apk
           unzip -Z1 minta-tolong.apk | grep -qx 'AndroidManifest.xml'
           unzip -Z1 minta-tolong.apk | grep -Eq '^classes([0-9]+)?\.dex$'
+
           echo "Ukuran APK:"
           du -h minta-tolong.apk
+
           echo "SHA-256:"
           sha256sum minta-tolong.apk
+
+          echo "Memeriksa tanda tangan APK..."
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          APKSIGNER=$(find "$SDK/build-tools" -type f -name apksigner -print -quit)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs minta-tolong.apk
+
 
       - name: Simpan APK untuk diunduh
         uses: actions/upload-artifact@v4
