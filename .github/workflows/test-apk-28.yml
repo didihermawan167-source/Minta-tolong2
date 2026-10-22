@@ -1,5 +1,5 @@
 
-name: Uji APK 28 di Emulator Android
+name: Uji APK 28 - Pemeriksaan Lengkap
 
 on:
   workflow_dispatch:
@@ -17,20 +17,23 @@ jobs:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
 
+      - name: Siapkan laporan
+        run: mkdir -p test-results
+
       - name: Unduh APK 28
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -e
           gh run download 39358164449 \
             --name minta-tolong-apk \
             --dir artifact
-
           APK=$(find artifact -type f -name '*.apk' -print -quit)
           test -n "$APK"
-          mkdir -p test-results
           cp "$APK" test-results/minta-tolong.apk
+          echo "APK berhasil diunduh" > test-results/download.txt
 
-      - name: Jalankan emulator dan uji APK
+      - name: Uji APK di emulator Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -39,52 +42,69 @@ jobs:
           profile: pixel_2
           script: |
             set +e
-            APK="$GITHUB_WORKSPACE/test-results/minta-tolong.apk"
-            SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-            mkdir -p "$GITHUB_WORKSPACE/test-results"
+            R="$GITHUB_WORKSPACE/test-results"
+            APK="$R/minta-tolong.apk"
+            mkdir -p "$R"
 
-            AAPT=$(find "$SDK/build-tools" -type f -name aapt -print -quit)
-            "$AAPT" dump badging "$APK" \
-              > "$GITHUB_WORKSPACE/test-results/apk-info.txt" 2>&1
+            SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+            echo "ANDROID_HOME=$ANDROID_HOME" > "$R/sdk-info.txt"
+            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$R/sdk-info.txt"
+
+            AAPT=$(find "$SDK/build-tools" -type f \
+              -name aapt -print -quit 2>/dev/null)
+            APKSIGNER=$(find "$SDK/build-tools" -type f \
+              -name apksigner -print -quit 2>/dev/null)
+
+            if [ -n "$AAPT" ]; then
+              "$AAPT" dump badging "$APK" > "$R/apk-info.txt" 2>&1
+              "$AAPT" dump permissions "$APK" > "$R/permissions.txt" 2>&1
+            else
+              echo "aapt tidak ditemukan di $SDK/build-tools" > "$R/apk-info.txt"
+              echo "GAGAL: aapt tidak ditemukan" > "$R/permissions.txt"
+            fi
+
+            if [ -n "$APKSIGNER" ]; then
+              "$APKSIGNER" verify --verbose --print-certs "$APK" \
+                > "$R/signature.txt" 2>&1
+              echo "Exit code: $?" >> "$R/signature.txt"
+            else
+              echo "apksigner tidak ditemukan" > "$R/signature.txt"
+            fi
 
             PACKAGE=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" \
-              "$GITHUB_WORKSPACE/test-results/apk-info.txt" | head -n 1)
+              "$R/apk-info.txt" | head -n 1)
+            echo "Package: $PACKAGE" > "$R/package.txt"
 
-            echo "Package: $PACKAGE"
-            adb install -r "$APK" \
-              > "$GITHUB_WORKSPACE/test-results/install.txt" 2>&1
+            adb install -r "$APK" > "$R/install.txt" 2>&1
             INSTALL_CODE=$?
-            cat "$GITHUB_WORKSPACE/test-results/install.txt"
+            cat "$R/install.txt"
 
             if [ "$INSTALL_CODE" -eq 0 ] && [ -n "$PACKAGE" ]; then
-              adb shell monkey -p "$PACKAGE" 1 \
-                > "$GITHUB_WORKSPACE/test-results/launch.txt" 2>&1
+              adb shell monkey -p "$PACKAGE" 1 > "$R/launch.txt" 2>&1
               sleep 20
-
-              adb shell pidof "$PACKAGE" \
-                > "$GITHUB_WORKSPACE/test-results/app-pid.txt" 2>&1
-
+              adb shell pidof "$PACKAGE" > "$R/app-pid.txt" 2>&1
               adb shell screencap -p /sdcard/test.png
-              adb pull /sdcard/test.png \
-                "$GITHUB_WORKSPACE/test-results/screenshot.png"
+              adb pull /sdcard/test.png "$R/screenshot.png" \
+                > "$R/screenshot-copy.txt" 2>&1
+            else
+              echo "Aplikasi tidak berhasil dipasang" > "$R/launch.txt"
             fi
 
-            adb logcat -d -t 5000 \
-              > "$GITHUB_WORKSPACE/test-results/logcat.txt"
+            adb logcat -d -t 5000 > "$R/logcat.txt" 2>&1
 
             if [ "$INSTALL_CODE" -ne 0 ]; then
-              echo "GAGAL: APK tidak bisa dipasang."
+              echo "GAGAL: APK tidak dapat dipasang"
               exit 1
             fi
 
-            if [ ! -s "$GITHUB_WORKSPACE/test-results/app-pid.txt" ]; then
-              echo "GAGAL: proses aplikasi tidak terdeteksi."
+            if [ ! -s "$R/app-pid.txt" ]; then
+              echo "GAGAL: proses aplikasi tidak terdeteksi"
               exit 1
             fi
 
-            echo "LULUS: APK terpasang dan proses aplikasi terdeteksi."
+            echo "LULUS: APK terpasang dan proses terdeteksi"
 
-      - name: Simpan hasil pengujian
+      - name: Simpan laporan walau pengujian gagal
         if: always()
         uses: actions/upload-artifact@v4
         with:
