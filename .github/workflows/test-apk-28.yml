@@ -42,7 +42,7 @@ jobs:
           profile: pixel_2
           script: |
             set +e
-            R="$GITHUB_WORKSPACE/test-results"
+            R="$PWD/test-results"
             APK="$R/minta-tolong.apk"
             mkdir -p "$R"
 
