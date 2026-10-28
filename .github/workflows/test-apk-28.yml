@@ -20,18 +20,38 @@ jobs:
       - name: Siapkan laporan
         run: mkdir -p test-results
 
+      
       - name: Unduh APK 28
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          gh run download 39358164449 \
-            --name minta-tolong-apk \
-            --dir artifact
-          APK=$(find artifact -type f -name '*.apk' -print -quit)
-          test -n "$APK"
-          cp "$APK" test-results/minta-tolong.apk
-          echo "APK berhasil diunduh" > test-results/download.txt
+          mkdir -p test-results
+          RUN_IDS=$(gh run list \
+            --workflow build-apk.yml \
+            --branch main \
+            --status success \
+            --limit 10 \
+            --json databaseId \
+            --jq '.[].databaseId')
+
+          for ID in $RUN_IDS; do
+            rm -rf artifact
+            if gh run download "$ID" \
+              --name minta-tolong-apk \
+              --dir artifact; then
+              APK=$(find artifact -type f -name '*.apk' -print -quit)
+              if [ -n "$APK" ]; then
+                cp "$APK" test-results/minta-tolong.apk
+                echo "APK berhasil diunduh dari run $ID" \
+                  > test-results/download.txt
+                break
+              fi
+            fi
+          done
+
+          test -s test-results/minta-tolong.apk
+
 
       - name: Uji APK di emulator Android
         uses: reactivecircus/android-emulator-runner@v2
