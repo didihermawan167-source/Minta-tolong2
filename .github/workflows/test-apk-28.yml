@@ -19,7 +19,7 @@ permissions:
 # do not start competing Android emulators at the same time.
 concurrency:
   group: minta-tolong-android-qc
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   test-apk:
