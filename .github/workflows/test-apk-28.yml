@@ -1,5 +1,5 @@
 name: Tim QC AI - Uji APK Otomatis
-# Trigger QC after the emulator launcher fix is committed.
+# Use the base Android image; this app does not require Google Play services.
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ permissions:
 # do not start competing Android emulators at the same time.
 concurrency:
   group: minta-tolong-android-qc
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   test-apk:
@@ -68,7 +68,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
-          target: google_apis
+          target: default
           arch: x86_64
           profile: pixel_2
           emulator-boot-timeout: 900
