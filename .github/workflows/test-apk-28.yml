@@ -52,10 +52,27 @@ jobs:
           arch: x86_64
           profile: pixel_2
           script: |
-            set -euo pipefail
+            # This action executes its script with /usr/bin/sh, not Bash.
+            set -eu
             R="$GITHUB_WORKSPACE/test-results"
             APK="$R/minta-tolong.apk"
             SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+            echo "Menunggu emulator siap..."
+            adb wait-for-device
+            BOOTED=""
+            ATTEMPT=0
+            while [ "$ATTEMPT" -lt 90 ]; do
+              BOOTED="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "$BOOTED" = "1" ]; then break; fi
+              ATTEMPT=$((ATTEMPT + 1))
+              sleep 2
+            done
+            if [ "$BOOTED" != "1" ]; then
+              echo "Emulator gagal menyelesaikan proses boot dalam 180 detik."
+              adb devices -l || true
+              exit 1
+            fi
+            echo "Emulator siap."
             AAPT="$(find "$SDK/build-tools" -type f -name aapt -print -quit 2>/dev/null || true)"
             if [ -n "$AAPT" ]; then
               "$AAPT" dump badging "$APK" > "$R/apk-info.txt"
