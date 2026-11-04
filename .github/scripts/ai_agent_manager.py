@@ -92,6 +92,8 @@ def main():
     title = issue.get("title", "")
     description = issue.get("body", "") or ""
     labels = [x["name"] for x in issue.get("labels", [])]
+    if issue.get("state") != "open" or "ai-task" not in labels:
+        raise RuntimeError("Tiket harus berstatus terbuka dan memiliki label ai-task.")
     if not OPENAI_KEY:
         # Zero-cost fallback: deterministic routing plus read-only repository audit.
         audit = safe_repository_audit()
