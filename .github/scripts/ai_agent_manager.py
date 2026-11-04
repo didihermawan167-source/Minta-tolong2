@@ -49,15 +49,14 @@ def main():
     labels = [x["name"] for x in issue.get("labels", [])]
     if not OPENAI_KEY:
         comment(
-            "## AI Center — Mesin Agen
-"
-            "**Status: menunggu konfigurasi mesin model.**\n\n"
+            "## AI Center — Mesin Agen\\n\\n"
+            "**Status: menunggu konfigurasi mesin model.**\\n\\n"
             "Penerimaan tugas dan antrean GitHub sudah aktif, tetapi agen belum "
             "dapat berpikir/menyusun hasil tanpa kredensial model AI. Tambahkan "
             "repository secret bernama `OPENAI_API_KEY` dan (opsional) repository "
             "variable `AI_MODEL`. Jangan kirim kunci API melalui Issue/chat. "
             "Kunci API dapat menimbulkan biaya penggunaan; jangan aktifkan sebelum "
-            "Direktur menyetujui anggaran.\n\n"
+            "Direktur menyetujui anggaran.\\n\\n"
             "Tidak ada perubahan kode atau tindakan berisiko yang dilakukan."
         )
         return
