@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
+      - name: Periksa sintaks mesin agen
+        run: python3 -m py_compile .github/scripts/ai_agent_manager.py
       - name: Jalankan mesin agen AI
         env:
           GITHUB_TOKEN: ${{ github.token }}
