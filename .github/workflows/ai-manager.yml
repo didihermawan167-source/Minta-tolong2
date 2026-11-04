@@ -1,0 +1,119 @@
+name: AI Manager - Pusat Perintah Direktur
+
+on:
+  workflow_dispatch:
+    inputs:
+      perintah:
+        description: "Tulis perintah kerja untuk kantor AI"
+        required: true
+        type: string
+      prioritas:
+        description: "Prioritas pekerjaan"
+        required: true
+        type: choice
+        options:
+          - normal
+          - tinggi
+          - mendesak
+        default: normal
+      persetujuan:
+        description: "Persetujuan untuk tindakan berisiko (deploy, pembayaran, hapus data)"
+        required: true
+        type: choice
+        options:
+          - belum
+          - sudah
+        default: belum
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  manager:
+    name: Manager membaca dan membagi perintah
+    runs-on: ubuntu-latest
+    steps:
+      - name: Analisis perintah dan buat tiket departemen
+        uses: actions/github-script@v7
+        env:
+          DIRECTOR_ORDER: ${{ inputs.perintah }}
+          PRIORITY: ${{ inputs.prioritas }}
+          APPROVAL: ${{ inputs.persetujuan }}
+        with:
+          script: |
+            const order = (process.env.DIRECTOR_ORDER || '').trim();
+            if (!order) core.setFailed('Perintah Direktur kosong.');
+            const lower = order.toLowerCase();
+            let department = 'Operasional';
+            let worker = 'Manager Operasional';
+            let labels = ['ai-task', 'dept-operasional'];
+            if (/(apk|expo|kode|coding|fitur|bug|github|aplikasi|developer)/i.test(lower)) {
+              department = 'Developer';
+              worker = 'AI Developer';
+              labels = ['ai-task', 'dept-developer'];
+            } else if (/(uji|qc|test|testing|cek|periksa|kualitas)/i.test(lower)) {
+              department = 'Quality Control';
+              worker = 'AI QC';
+              labels = ['ai-task', 'dept-qc'];
+            } else if (/(build|rilis|versi|install|instal|apk)/i.test(lower)) {
+              department = 'Build dan Deployment';
+              worker = 'AI Build';
+              labels = ['ai-task', 'dept-build'];
+            } else if (/(laporan|pantau|status|monitor)/i.test(lower)) {
+              department = 'Pelaporan';
+              worker = 'AI Reporter';
+              labels = ['ai-task', 'dept-report'];
+            }
+            const risky = /(hapus|delete|bayar|pembayaran|transfer|produksi|production|rilis publik|deploy publik)/i.test(lower);
+            const approved = process.env.APPROVAL === 'sudah';
+            const gate = risky && !approved
+              ? 'TERTAHAN: perlu persetujuan Direktur sebelum tindakan berisiko.'
+              : 'Diterima sebagai tiket kerja. Pelaksanaan teknis tetap harus diverifikasi.';
+            const allLabels = [...labels, `priority-${process.env.PRIORITY}`];
+            for (const name of allLabels) {
+              try {
+                await github.rest.issues.getLabel({owner: context.repo.owner, repo: context.repo.repo, name});
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner, repo: context.repo.repo,
+                    name, color: name.startsWith('priority-') ? 'd93f0b' : '1d76db'
+                  });
+                } else throw e;
+              }
+            }
+            const body = [
+              '## Perintah Direktur',
+              order,
+              '',
+              '## Pembagian Manager',
+              `- Departemen: **${department}**`,
+              `- Penanggung jawab peran: **${worker}**`,
+              `- Prioritas: **${process.env.PRIORITY}**`,
+              `- Persetujuan berisiko: **${process.env.APPROVAL}**`,
+              '',
+              '## Status',
+              gate,
+              '',
+              '## Batas kemampuan saat ini',
+              'Tiket dan pembagian departemen dibuat otomatis. Ini belum berarti agen AI berjalan terus-menerus atau mengubah kode sendiri. Pekerjaan kode, build, dan QC harus dilakukan oleh workflow/alat yang tersedia dan hasilnya dilaporkan kembali di tiket ini.'
+            ].join('\n');
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `[AI Manager][${department}] ${order.slice(0, 100)}`,
+              body, labels: allLabels
+            });
+            core.summary
+              .addHeading('Laporan AI Manager')
+              .addTable([
+                [{data:'Item',header:true},{data:'Hasil',header:true}],
+                ['Departemen', department],
+                ['Petugas peran', worker],
+                ['Prioritas', process.env.PRIORITY],
+                ['Nomor tiket', `#${issue.data.number}`],
+                ['Status pengamanan', gate]
+              ])
+              .addLink('Buka tiket kerja', issue.data.html_url)
+              .write();
+            core.setOutput('issue_url', issue.data.html_url);
