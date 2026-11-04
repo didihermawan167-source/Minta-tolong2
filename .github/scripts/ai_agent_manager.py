@@ -177,7 +177,7 @@ def main():
             "### Batas mode gratis",
             "Mesin ini dapat menerima tiket, mengelompokkan pekerjaan, membuat checklist, dan melaporkan status. Ia belum dapat menulis kode secara mandiri atau berpikir seperti LLM tanpa model eksternal."
         ]
-        comment("\n".join(lines))
+        publish_report("\n".join(lines))
         return
 
     prompt = f"""
@@ -227,7 +227,7 @@ tandai approval_required true. Jangan mengeluarkan kode executable atau perintah
         start, end = text.find("{"), text.rfind("}")
         plan = json.loads(text[start:end + 1])
     except Exception as exc:
-        comment("## AI Center — Mesin Agen\n**Status: gagal memproses tugas.**\n\n"
+        publish_report("## AI Center — Mesin Agen\n**Status: gagal memproses tugas.**\n\n"
                 f"Detail aman: `{type(exc).__name__}`. Periksa secret/model dan log Actions. "
                 "Tidak ada perubahan kode yang dilakukan.")
         raise
@@ -256,7 +256,7 @@ tandai approval_required true. Jangan mengeluarkan kode executable atau perintah
               "bukti tugas teknis sudah selesai."]
     if plan.get("approval_required", True):
         lines += ["", "**Persetujuan Direktur diperlukan** sebelum tindakan berisiko."]
-    comment("\n".join(lines))
+    publish_report("\n".join(lines))
 
 
 if __name__ == "__main__":
