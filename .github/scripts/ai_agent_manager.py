@@ -6,6 +6,7 @@ handoffs. It deliberately does not execute model-generated shell commands or
 write application source files. Code changes require a later reviewed worker.
 """
 import json
+import base64
 import os
 import sys
 import urllib.error
@@ -42,13 +43,58 @@ def comment(body):
             "POST", {"body": body})
 
 
+
+def read_repo_file(path):
+    """Read a repository file through GitHub's API; never writes to the repo."""
+    item = request(f"{API}/repos/{REPO}/contents/{path}")
+    encoded = item.get("content", "")
+    if not encoded:
+        raise RuntimeError(f"Isi file {path} kosong atau tidak tersedia.")
+    return base64.b64decode(encoded).decode("utf-8")
+
+
+def safe_repository_audit():
+    """Run a small, read-only structural audit in zero-cost mode."""
+    results = []
+    try:
+        package = json.loads(read_repo_file("package.json"))
+        results.append(("package.json valid", True, "JSON berhasil dibaca"))
+        dependencies = {**package.get("dependencies", {}),
+                        **package.get("devDependencies", {})}
+        results.append(("Dependensi Expo terdaftar", "expo" in dependencies,
+                        "expo ditemukan" if "expo" in dependencies else "expo tidak ditemukan"))
+    except Exception as exc:
+        results.append(("package.json valid", False, type(exc).__name__))
+
+    try:
+        app = json.loads(read_repo_file("app.json"))
+        expo = app.get("expo", {})
+        results.append(("Konfigurasi app.json valid", bool(expo),
+                        "objek expo ditemukan" if expo else "objek expo tidak ditemukan"))
+        results.append(("Nama aplikasi tersedia", bool(expo.get("name")),
+                        str(expo.get("name", "tidak ada"))))
+        results.append(("Slug aplikasi tersedia", bool(expo.get("slug")),
+                        str(expo.get("slug", "tidak ada"))))
+    except Exception as exc:
+        results.append(("Konfigurasi app.json valid", False, type(exc).__name__))
+
+    for path in ("app/_layout.tsx", "app/index.tsx", "lib/supabase.ts"):
+        try:
+            read_repo_file(path)
+            results.append((f"File {path} tersedia", True, "berhasil dibaca dari branch"))
+        except Exception as exc:
+            results.append((f"File {path} tersedia", False, type(exc).__name__))
+    return results
+
+
 def main():
     issue = request(f"{API}/repos/{REPO}/issues/{ISSUE_NUMBER}")
     title = issue.get("title", "")
     description = issue.get("body", "") or ""
     labels = [x["name"] for x in issue.get("labels", [])]
     if not OPENAI_KEY:
-        # Zero-cost fallback: deterministic routing/checklist, not an LLM.
+        # Zero-cost fallback: deterministic routing plus read-only repository audit.
+        audit = safe_repository_audit()
         label_set = set(labels)
         if "dept-developer" in label_set:
             department = "Developer"
@@ -104,6 +150,13 @@ def main():
         ]
         for index, (role, task) in enumerate(tasks, 1):
             lines.append(f"{index}. **{role}:** {task}")
+        lines += [
+            "",
+            "### Audit repositori otomatis (baca-saja)",
+        ]
+        for name, passed, detail in audit:
+            status = "LULUS" if passed else "GAGAL"
+            lines.append(f"- [{status}] {name}: {detail}")
         lines += [
             "",
             "### Gerbang QC",
