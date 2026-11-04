@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Minta Tolong AI Center: bounded, auditable agent coordinator.
+"""Minta Tolong AI Center: bounded, auditable task coordinator.
 
-This first engine release performs real LLM-backed task analysis and department
-handoffs. It deliberately does not execute model-generated shell commands or
-write application source files. Code changes require a later reviewed worker.
+Uses deterministic checklists without an API key, or LLM-backed planning when
+configured. It never executes model-generated commands or writes source files.
 """
 import json
 import base64
@@ -41,6 +40,15 @@ def request(url, method="GET", payload=None, bearer=TOKEN, extra_headers=None):
 def comment(body):
     request(f"{API}/repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
             "POST", {"body": body})
+
+
+def publish_report(body):
+    """Publish the same evidence-bounded report to the ticket and Actions summary."""
+    comment(body)
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as summary:
+            summary.write(body + "\\n")
 
 
 
