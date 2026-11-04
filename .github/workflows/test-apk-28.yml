@@ -2,6 +2,10 @@ name: Tim QC AI - Uji APK Otomatis
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/test-apk-28.yml'
   workflow_run:
     workflows: ["Build APK Minta Tolong"]
     types: [completed]
@@ -19,18 +23,33 @@ concurrency:
 
 jobs:
   test-apk:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
+      - name: Tentukan build APK sumber
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          else
+            RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/build-apk.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id')"
+          fi
+          test -n "$RUN_ID"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Build APK sumber: $RUN_ID"
       - name: Unduh APK dari proses build yang tepat
         uses: actions/download-artifact@v4
         with:
           name: minta-tolong-apk
           path: test-results/input
-          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+          run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
       - name: Periksa APK dan siapkan laporan
         shell: bash
