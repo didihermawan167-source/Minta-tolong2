@@ -1,10 +1,12 @@
 name: AI Center - Mesin Agen dan Koordinator
 
 on:
-  issues:
-    # AI Manager creates the issue with its department labels already attached.
-    # Listening only to opened prevents duplicate agent runs for label events.
-    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Nomor tiket AI yang akan diproses manual"
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -28,7 +30,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           AI_MODEL: ${{ vars.AI_MODEL }}
         run: python3 .github/scripts/ai_agent_manager.py
