@@ -79,19 +79,13 @@ jobs:
             R="$GITHUB_WORKSPACE/test-results"
             APK="$R/minta-tolong.apk"
             SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-            echo "Menunggu emulator siap..."
+            echo "Memeriksa status emulator (aksi emulator-runner sudah menunggu boot)..."
             adb wait-for-device
-            BOOTED=""
-            ATTEMPT=0
-            while [ "$ATTEMPT" -lt 150 ]; do
-              BOOTED="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-              if [ "$BOOTED" = "1" ]; then break; fi
-              ATTEMPT=$((ATTEMPT + 1))
-              sleep 2
-            done
+            BOOTED="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
             if [ "$BOOTED" != "1" ]; then
-              echo "Emulator gagal menyelesaikan proses boot dalam 300 detik."
+              echo "Emulator belum siap; status sys.boot_completed=$BOOTED"
               adb devices -l || true
+              adb shell getprop | grep -E 'init.svc.bootanim|sys.boot_completed' || true
               exit 1
             fi
             echo "Emulator siap."
