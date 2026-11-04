@@ -48,17 +48,73 @@ def main():
     description = issue.get("body", "") or ""
     labels = [x["name"] for x in issue.get("labels", [])]
     if not OPENAI_KEY:
-        comment(
-            "## AI Center — Mesin Agen\\n\\n"
-            "**Status: menunggu konfigurasi mesin model.**\\n\\n"
-            "Penerimaan tugas dan antrean GitHub sudah aktif, tetapi agen belum "
-            "dapat berpikir/menyusun hasil tanpa kredensial model AI. Tambahkan "
-            "repository secret bernama `OPENAI_API_KEY` dan (opsional) repository "
-            "variable `AI_MODEL`. Jangan kirim kunci API melalui Issue/chat. "
-            "Kunci API dapat menimbulkan biaya penggunaan; jangan aktifkan sebelum "
-            "Direktur menyetujui anggaran.\\n\\n"
-            "Tidak ada perubahan kode atau tindakan berisiko yang dilakukan."
-        )
+        # Zero-cost fallback: deterministic routing/checklist, not an LLM.
+        label_set = set(labels)
+        if "dept-developer" in label_set:
+            department = "Developer"
+            tasks = [
+                ("Manager", "Pastikan tujuan, ruang lingkup, dan file yang boleh disentuh jelas."),
+                ("Developer", "Periksa kode terkait dan siapkan perubahan sekecil mungkin; jangan mengubah file di luar ruang lingkup."),
+                ("QC", "Jalankan pemeriksaan statis yang tersedia dan catat hasilnya."),
+                ("Reporter", "Laporkan file yang diperiksa, hasil, kendala, dan langkah berikutnya."),
+            ]
+        elif "dept-qc" in label_set:
+            department = "Quality Control"
+            tasks = [
+                ("Manager", "Tetapkan bagian aplikasi dan kriteria lulus/gagal."),
+                ("QC", "Periksa struktur proyek, konfigurasi, dan tes yang tersedia; jangan menyatakan tes perangkat nyata jika tidak dijalankan."),
+                ("Developer", "Terima hanya temuan yang dapat direproduksi dan perbaiki setelah ruang lingkup disetujui."),
+                ("Reporter", "Catat bukti, kegagalan, dan rekomendasi."),
+            ]
+        elif "dept-build" in label_set:
+            department = "Build dan Deployment"
+            tasks = [
+                ("Manager", "Pastikan commit sumber dan profil build yang diminta."),
+                ("Build", "Gunakan workflow build yang sudah ada; jangan memulai rilis publik atau layanan berbayar."),
+                ("QC", "Verifikasi artefak APK dan laporan pemeriksaan."),
+                ("Reporter", "Laporkan run, status, dan tautan artefak jika tersedia."),
+            ]
+        elif "dept-report" in label_set:
+            department = "Pelaporan"
+            tasks = [
+                ("Manager", "Tentukan periode dan objek yang dipantau."),
+                ("Reporter", "Kumpulkan status workflow, commit, tiket, dan artefak yang benar-benar tersedia."),
+                ("QC", "Cocokkan klaim laporan dengan bukti GitHub."),
+            ]
+        else:
+            department = "Operasional"
+            tasks = [
+                ("Manager", "Uraikan perintah menjadi langkah kecil dan tentukan penanggung jawab."),
+                ("Operasional", "Periksa prasyarat dan catat pekerjaan yang dapat dilakukan tanpa biaya."),
+                ("QC", "Periksa hasil berdasarkan kriteria yang tertulis."),
+                ("Reporter", "Sampaikan status, kendala, dan keputusan yang dibutuhkan Direktur."),
+            ]
+        lines = [
+            "## AI Center — Koordinasi Otomatis Tanpa Biaya",
+            "**Status: rencana kerja berbasis aturan berhasil dibuat.**",
+            "",
+            "**Catatan kejujuran:** mode ini memakai aturan/checklist tetap, bukan model AI yang memahami bebas. Tidak memerlukan API key dan tidak menimbulkan biaya API.",
+            f"**Departemen:** {department}",
+            "",
+            "### Perintah yang diterima",
+            title,
+            description,
+            "",
+            "### Serah-terima antarperan",
+        ]
+        for index, (role, task) in enumerate(tasks, 1):
+            lines.append(f"{index}. **{role}:** {task}")
+        lines += [
+            "",
+            "### Gerbang QC",
+            "- Hasil harus memiliki bukti yang bisa diperiksa (commit, log workflow, tes, atau artefak).",
+            "- Jangan menyatakan pekerjaan selesai jika hanya berupa rencana.",
+            "- Perubahan berisiko, pembayaran, penghapusan data, dan rilis publik tetap menunggu persetujuan Direktur.",
+            "",
+            "### Batas mode gratis",
+            "Mesin ini dapat menerima tiket, mengelompokkan pekerjaan, membuat checklist, dan melaporkan status. Ia belum dapat menulis kode secara mandiri atau berpikir seperti LLM tanpa model eksternal."
+        ]
+        comment("\\n".join(lines))
         return
 
     prompt = f"""
