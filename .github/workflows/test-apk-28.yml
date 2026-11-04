@@ -1,8 +1,11 @@
-
-name: Uji APK 28 - Pemeriksaan Lengkap
+name: Tim QC AI - Uji APK Otomatis
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build APK Minta Tolong"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   actions: read
@@ -10,50 +13,32 @@ permissions:
 
 jobs:
   test-apk:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-
+    timeout-minutes: 45
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
-
-      - name: Siapkan laporan
-        run: mkdir -p test-results
-
-      
-      - name: Unduh APK 28
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Unduh APK dari proses build yang tepat
+        uses: actions/download-artifact@v4
+        with:
+          name: minta-tolong-apk
+          path: test-results/input
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+          github-token: ${{ github.token }}
+      - name: Periksa APK dan siapkan laporan
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p test-results
-          RUN_IDS=$(gh run list \
-            --workflow build-apk.yml \
-            --branch main \
-            --status success \
-            --limit 10 \
-            --json databaseId \
-            --jq '.[].databaseId')
-
-          for ID in $RUN_IDS; do
-            rm -rf artifact
-            if gh run download "$ID" \
-              --name minta-tolong-apk \
-              --dir artifact; then
-              APK=$(find artifact -type f -name '*.apk' -print -quit)
-              if [ -n "$APK" ]; then
-                cp "$APK" test-results/minta-tolong.apk
-                echo "APK berhasil diunduh dari run $ID" \
-                  > test-results/download.txt
-                break
-              fi
-            fi
-          done
-
+          APK="$(find test-results/input -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          cp "$APK" test-results/minta-tolong.apk
           test -s test-results/minta-tolong.apk
-
-
-      - name: Uji APK di emulator Android
+          unzip -tq test-results/minta-tolong.apk
+          sha256sum test-results/minta-tolong.apk | tee test-results/sha256.txt
+          echo "APK berhasil diunduh dan arsip ZIP valid." | tee test-results/precheck.txt
+      - name: Tim QC menguji instalasi dan pembukaan aplikasi
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -61,75 +46,45 @@ jobs:
           arch: x86_64
           profile: pixel_2
           script: |
-            set +e
-            R="$PWD/test-results"
+            set -euo pipefail
+            R="$GITHUB_WORKSPACE/test-results"
             APK="$R/minta-tolong.apk"
-            mkdir -p "$R"
-
             SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-            echo "ANDROID_HOME=$ANDROID_HOME" > "$R/sdk-info.txt"
-            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$R/sdk-info.txt"
-
-            AAPT=$(find "$SDK/build-tools" -type f \
-              -name aapt -print -quit 2>/dev/null)
-            APKSIGNER=$(find "$SDK/build-tools" -type f \
-              -name apksigner -print -quit 2>/dev/null)
-
+            AAPT="$(find "$SDK/build-tools" -type f -name aapt -print -quit 2>/dev/null || true)"
             if [ -n "$AAPT" ]; then
-              "$AAPT" dump badging "$APK" > "$R/apk-info.txt" 2>&1
-              "$AAPT" dump permissions "$APK" > "$R/permissions.txt" 2>&1
+              "$AAPT" dump badging "$APK" > "$R/apk-info.txt"
+              "$AAPT" dump permissions "$APK" > "$R/permissions.txt"
+              PACKAGE="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$R/apk-info.txt" | head -n 1)"
             else
-              echo "aapt tidak ditemukan di $SDK/build-tools" > "$R/apk-info.txt"
-              echo "GAGAL: aapt tidak ditemukan" > "$R/permissions.txt"
+              PACKAGE="$(apkanalyzer manifest application-id "$APK")"
+              echo "aapt tidak tersedia; package diperiksa dengan apkanalyzer." > "$R/apk-info.txt"
             fi
-
-            if [ -n "$APKSIGNER" ]; then
-              "$APKSIGNER" verify --verbose --print-certs "$APK" \
-                > "$R/signature.txt" 2>&1
-              echo "Exit code: $?" >> "$R/signature.txt"
-            else
-              echo "apksigner tidak ditemukan" > "$R/signature.txt"
-            fi
-
-            PACKAGE=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" \
-              "$R/apk-info.txt" | head -n 1)
-            echo "Package: $PACKAGE" > "$R/package.txt"
-
-            adb install -r "$APK" > "$R/install.txt" 2>&1
-            INSTALL_CODE=$?
-            cat "$R/install.txt"
-
-            if [ "$INSTALL_CODE" -eq 0 ] && [ -n "$PACKAGE" ]; then
-              adb shell monkey -p "$PACKAGE" 1 > "$R/launch.txt" 2>&1
-              sleep 20
-              adb shell pidof "$PACKAGE" > "$R/app-pid.txt" 2>&1
-              adb shell screencap -p /sdcard/test.png
-              adb pull /sdcard/test.png "$R/screenshot.png" \
-                > "$R/screenshot-copy.txt" 2>&1
-            else
-              echo "Aplikasi tidak berhasil dipasang" > "$R/launch.txt"
-            fi
-
-            adb logcat -d -t 5000 > "$R/logcat.txt" 2>&1
-
-            if [ "$INSTALL_CODE" -ne 0 ]; then
-              echo "GAGAL: APK tidak dapat dipasang"
-              exit 1
-            fi
-
-            if [ ! -s "$R/app-pid.txt" ]; then
-              echo "GAGAL: proses aplikasi tidak terdeteksi"
-              exit 1
-            fi
-
-            echo "LULUS: APK terpasang dan proses terdeteksi"
-
-      - name: Simpan laporan walau pengujian gagal
+            test -n "$PACKAGE"
+            echo "$PACKAGE" | tee "$R/package.txt"
+            adb install -r "$APK" 2>&1 | tee "$R/install.txt"
+            adb shell monkey -p "$PACKAGE" 1 2>&1 | tee "$R/launch.txt"
+            sleep 20
+            adb shell pidof "$PACKAGE" | tee "$R/app-pid.txt"
+            test -s "$R/app-pid.txt"
+            adb shell screencap -p /sdcard/qc-screen.png
+            adb pull /sdcard/qc-screen.png "$R/screenshot.png"
+            adb logcat -d -t 5000 > "$R/logcat.txt"
+            echo "LULUS: APK dapat dipasang, dibuka, dan proses aplikasi terdeteksi." | tee "$R/QC-RESULT.txt"
+      - name: Simpan laporan QC
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hasil-uji-apk-28
+          name: laporan-qc-apk
           path: test-results/
           if-no-files-found: warn
-          retention-days: 7
-          
+          retention-days: 14
+      - name: Ringkasan laporan
+        if: always()
+        run: |
+          {
+            echo "## Laporan Tim QC AI"
+            echo "- Build sumber: ${{ github.event.workflow_run.id || github.run_id }}"
+            echo "- Hasil job QC: ${{ job.status }}"
+            if [ -f test-results/QC-RESULT.txt ]; then cat test-results/QC-RESULT.txt; fi
+            if [ -f test-results/precheck.txt ]; then cat test-results/precheck.txt; fi
+          } >> "$GITHUB_STEP_SUMMARY"
