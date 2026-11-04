@@ -167,7 +167,7 @@ def main():
             "### Batas mode gratis",
             "Mesin ini dapat menerima tiket, mengelompokkan pekerjaan, membuat checklist, dan melaporkan status. Ia belum dapat menulis kode secara mandiri atau berpikir seperti LLM tanpa model eksternal."
         ]
-        comment("\\n".join(lines))
+        comment("\n".join(lines))
         return
 
     prompt = f"""
