@@ -48,7 +48,7 @@ def publish_report(body):
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as summary:
-            summary.write(body + "\\n")
+            summary.write(body + "\n")
 
 
 
