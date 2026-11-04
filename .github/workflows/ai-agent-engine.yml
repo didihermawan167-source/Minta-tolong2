@@ -13,12 +13,11 @@ permissions:
   issues: write
 
 concurrency:
-  group: ai-center-issue-${{ github.event.issue.number }}
+  group: ai-center-issue-${{ inputs.issue_number }}
   cancel-in-progress: false
 
 jobs:
   agent-manager:
-    if: contains(github.event.issue.labels.*.name, 'ai-task') && github.event.issue.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
