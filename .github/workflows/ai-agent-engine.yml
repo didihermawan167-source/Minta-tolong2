@@ -2,7 +2,9 @@ name: AI Center - Mesin Agen dan Koordinator
 
 on:
   issues:
-    types: [opened, labeled]
+    # AI Manager creates the issue with its department labels already attached.
+    # Listening only to opened prevents duplicate agent runs for label events.
+    types: [opened]
 
 permissions:
   contents: read
