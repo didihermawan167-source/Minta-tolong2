@@ -16,11 +16,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Pasang dependensi
-        run: npm ci
-
-      - name: Periksa kecocokan dependensi Expo
-        run: npx expo install --check
+      - name: Pasang dan selaraskan dependensi
+        run: |
+          npm install
+          npx expo install --fix
+          npx expo install --check
 
       - name: Periksa kode aplikasi
         run: npx expo export --platform android
