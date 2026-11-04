@@ -66,10 +66,13 @@ jobs:
       - name: Tim QC menguji instalasi dan pembukaan aplikasi
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_2
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
           script: |
             # This action executes its script with /usr/bin/sh, not Bash.
             set -eu
@@ -80,14 +83,14 @@ jobs:
             adb wait-for-device
             BOOTED=""
             ATTEMPT=0
-            while [ "$ATTEMPT" -lt 90 ]; do
+            while [ "$ATTEMPT" -lt 150 ]; do
               BOOTED="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
               if [ "$BOOTED" = "1" ]; then break; fi
               ATTEMPT=$((ATTEMPT + 1))
               sleep 2
             done
             if [ "$BOOTED" != "1" ]; then
-              echo "Emulator gagal menyelesaikan proses boot dalam 180 detik."
+              echo "Emulator gagal menyelesaikan proses boot dalam 300 detik."
               adb devices -l || true
               exit 1
             fi
