@@ -11,6 +11,12 @@ permissions:
   actions: read
   contents: read
 
+# Emulator QC is resource-heavy. Queue runs globally so several builds
+# do not start competing Android emulators at the same time.
+concurrency:
+  group: minta-tolong-android-qc
+  cancel-in-progress: false
+
 jobs:
   test-apk:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
