@@ -33,8 +33,11 @@ jobs:
   manager:
     name: Manager membaca dan membagi perintah
     runs-on: ubuntu-latest
+    outputs:
+      issue_number: ${{ steps.route.outputs.issue_number }}
     steps:
       - name: Analisis perintah dan buat tiket departemen
+        id: route
         uses: actions/github-script@v7
         env:
           DIRECTOR_ORDER: ${{ inputs.perintah }}
@@ -119,3 +122,23 @@ jobs:
               .addLink('Buka tiket kerja', issue.data.html_url)
               .write();
             core.setOutput('issue_url', issue.data.html_url);
+            core.setOutput('issue_number', String(issue.data.number));
+
+  agent-manager:
+    name: Mesin agen memproses tiket Manager
+    needs: manager
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ambil kode proyek
+        uses: actions/checkout@v4
+      - name: Periksa sintaks mesin agen
+        run: python3 -m py_compile .github/scripts/ai_agent_manager.py
+      - name: Jalankan mesin agen AI
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.manager.outputs.issue_number }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+        run: python3 .github/scripts/ai_agent_manager.py
