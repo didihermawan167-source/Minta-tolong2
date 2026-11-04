@@ -30,7 +30,7 @@ try {
   if (permission.status !== "granted") {
     Alert.alert(
       "Izin lokasi diperlukan",
-      "Izinkan Minta Tolong mengakses lokasi HP agar permintaan bisa dikirim."
+      "Izinkan lokasi agar pemberi bantuan memahami area permintaan. Tidak ada batas radius pencarian."
     );
     return;
   }
@@ -42,7 +42,6 @@ try {
   const { error } = await supabase.from("help_requests").insert({
     request_type: title.trim(),
     description: description.trim(),
-    radius_m: 200,
     latitude: position.coords.latitude,
     longitude: position.coords.longitude,
     status: "Menunggu",
@@ -97,7 +96,7 @@ Jelaskan bantuan yang sedang kamu butuhkan.
   />
 
   <Text style={s.note}>
-    Lokasi HP akan disertakan saat permintaan dikirim ke server.
+    Lokasi HP membantu pemberi bantuan memahami area Anda. Permintaan tidak dibatasi radius tertentu.
   </Text>
 
   <Pressable

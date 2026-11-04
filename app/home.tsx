@@ -47,8 +47,8 @@ return (
     <Text style={s.muted}>
       {loc ? "Lokasi GPS aktif" : "Lokasi belum aktif"}
     </Text>
-    <Text style={s.radius}>
-      Radius bantuan: <Text style={{ fontWeight: "800" }}>200 m – 2 km</Text>
+    <Text style={s.muted}>
+      Bantuan dapat dicari tanpa batas radius tetap.
     </Text>
   </View>
 
@@ -86,7 +86,7 @@ avatar: { fontSize: 28 },
 card: { backgroundColor: "#fff", borderRadius: 16, padding: 17, marginBottom: 16 },
 ct: { fontWeight: "700", fontSize: 16 },
 muted: { color: "#666", marginTop: 5 },
-radius: { marginTop: 12 },
+
 help: { backgroundColor: "#e53935", borderRadius: 20, padding: 24, alignItems: "center", marginBottom: 14 },
 helpIcon: { fontSize: 40 },
 helpText: { fontSize: 22, color: "#fff", fontWeight: "900", marginTop: 6 },
