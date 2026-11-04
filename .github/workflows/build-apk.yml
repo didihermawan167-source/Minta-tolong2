@@ -5,6 +5,17 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'assets/**'
+      - 'components/**'
+      - 'app.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'eas.json'
+      - 'tsconfig.json'
+      - '.github/workflows/build-apk.yml'
 
 jobs:
   build:
