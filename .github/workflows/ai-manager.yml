@@ -48,15 +48,13 @@ jobs:
             let department = 'Operasional';
             let worker = 'Manager Operasional';
             let labels = ['ai-task', 'dept-operasional'];
-            if (/(apk|expo|kode|coding|fitur|bug|github|aplikasi|developer)/i.test(lower)) {
-              department = 'Developer';
-              worker = 'AI Developer';
-              labels = ['ai-task', 'dept-developer'];
-            } else if (/(uji|qc|test|testing|cek|periksa|kualitas)/i.test(lower)) {
+            // Route the most specific work intent first; "apk" alone must not
+            // be swallowed by the broader Developer rule.
+            if (/(uji|qc|test|testing|cek|periksa|kualitas)/i.test(lower)) {
               department = 'Quality Control';
               worker = 'AI QC';
               labels = ['ai-task', 'dept-qc'];
-            } else if (/(build|rilis|versi|install|instal|apk)/i.test(lower)) {
+            } else if (/(build|buat apk|hasilkan apk|kompilasi|install|instal|rilis apk)/i.test(lower)) {
               department = 'Build dan Deployment';
               worker = 'AI Build';
               labels = ['ai-task', 'dept-build'];
@@ -64,6 +62,10 @@ jobs:
               department = 'Pelaporan';
               worker = 'AI Reporter';
               labels = ['ai-task', 'dept-report'];
+            } else if (/(apk|expo|kode|coding|fitur|bug|github|aplikasi|developer)/i.test(lower)) {
+              department = 'Developer';
+              worker = 'AI Developer';
+              labels = ['ai-task', 'dept-developer'];
             }
             const risky = /(hapus|delete|bayar|pembayaran|transfer|produksi|production|rilis publik|deploy publik)/i.test(lower);
             const approved = process.env.APPROVAL === 'sudah';
