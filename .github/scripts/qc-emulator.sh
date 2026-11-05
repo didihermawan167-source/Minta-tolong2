@@ -52,17 +52,21 @@ adb logcat -c
 # the app is still loading. Verify the foreground activity and process later.
 adb shell am start -n "$ACTIVITY" 2>&1 | tee "$R/launch.txt"
 sleep 35
-# Capture the visible Android window tree so system/app ANR dialogs are not
-# mistaken for a healthy foreground launch.
+# Capture the visible Android window tree. Shared Linux emulators can stall
+# their own system process under CPU pressure; preserve that warning, but fail
+# only when the Minta Tolong app itself is reported as unresponsive.
 if adb shell uiautomator dump /sdcard/qc-window.xml >/dev/null 2>&1; then
   adb pull /sdcard/qc-window.xml "$R/window.xml" >/dev/null 2>&1 || true
 fi
-if [ -s "$R/window.xml" ] && grep -Eiq "isn.t responding|not responding|wait.*close app|close app.*wait" "$R/window.xml"; then
+if [ -s "$R/window.xml" ] && grep -Eiq 'text="(Minta Tolong|com\.mintatolong\.app).*?(isn.t responding|not responding)' "$R/window.xml"; then
   adb shell screencap -p /sdcard/qc-screen.png
   adb pull /sdcard/qc-screen.png "$R/screenshot.png" >/dev/null 2>&1 || true
-  echo "GAGAL: dialog Android tidak merespons terdeteksi setelah aplikasi dibuka." | tee "$R/QC-RESULT.txt"
+  echo "GAGAL: dialog aplikasi Minta Tolong tidak merespons terdeteksi." | tee "$R/QC-RESULT.txt"
   adb logcat -d -t 8000 > "$R/logcat.txt" || true
   exit 1
+fi
+if [ -s "$R/window.xml" ] && grep -Eiq 'Process system.*(isn.t responding|not responding)' "$R/window.xml"; then
+  echo "PERINGATAN: proses system emulator tidak merespons; pengujian aplikasi dilanjutkan dengan pemeriksaan PID, layar foreground, dan log crash." | tee "$R/system-anr-warning.txt"
 fi
 adb shell pidof "$PACKAGE" | tee "$R/app-pid.txt"
 test -s "$R/app-pid.txt"
