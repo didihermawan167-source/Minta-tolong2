@@ -10,7 +10,6 @@ BOOTED="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)
 if [ "$BOOTED" != "1" ]; then
   echo "Emulator belum siap; status sys.boot_completed=$BOOTED"
   adb devices -l || true
-  adb shell getprop | grep -E 'init.svc.bootanim|sys.boot_completed' || true
   exit 1
 fi
 echo "Emulator siap."
@@ -31,27 +30,41 @@ test -n "$PACKAGE"
 echo "$PACKAGE" | tee "$R/package.txt"
 adb install -r "$APK" 2>&1 | tee "$R/install.txt"
 
-# Launch the APK's declared launcher activity directly. The old monkey
-# command could abort when an unrelated Google system app reported an ANR.
 if [ -z "$ACTIVITY" ]; then
   RESOLVED="$(adb shell cmd package resolve-activity --brief "$PACKAGE" 2>/dev/null | tr -d '\r' | tail -n 1)"
-  case "$RESOLVED" in
-    */*) ACTIVITY="$RESOLVED" ;;
-  esac
+  case "$RESOLVED" in */*) ACTIVITY="$RESOLVED" ;; esac
 else
   ACTIVITY="$PACKAGE/$ACTIVITY"
 fi
 if [ -z "$ACTIVITY" ]; then
   echo "GAGAL: aktivitas peluncur tidak ditemukan untuk $PACKAGE" | tee "$R/QC-RESULT.txt"
-  adb logcat -d -t 5000 > "$R/logcat.txt" || true
   exit 1
 fi
+
 echo "$ACTIVITY" | tee "$R/launcher-activity.txt"
-adb shell am start -W -n "$ACTIVITY" 2>&1 | tee "$R/launch.txt"
-sleep 20
+adb shell am force-stop "$PACKAGE" || true
+adb logcat -c
+# Do not trust am start -W alone: on slow emulators it can time out while
+# the app is still loading. Verify the foreground activity and process later.
+adb shell am start -n "$ACTIVITY" 2>&1 | tee "$R/launch.txt"
+sleep 35
 adb shell pidof "$PACKAGE" | tee "$R/app-pid.txt"
 test -s "$R/app-pid.txt"
+
+adb shell dumpsys activity activities > "$R/activities.txt"
+if ! grep -F "$PACKAGE" "$R/activities.txt" | grep -Eq 'ResumedActivity|topResumedActivity|mResumed'; then
+  echo "GAGAL: proses hidup tetapi layar utama aplikasi tidak terdeteksi di depan." | tee "$R/QC-RESULT.txt"
+  adb logcat -d -t 8000 > "$R/logcat.txt" || true
+  exit 1
+fi
+
+adb logcat -d -t 8000 > "$R/logcat.txt"
+if grep -E 'FATAL EXCEPTION|ReactNativeJS: \[.*(Error|Exception)|JavascriptException:' "$R/logcat.txt" > "$R/fatal-errors.txt"; then
+  echo "GAGAL: ditemukan error fatal JavaScript/Android saat aplikasi dibuka." | tee "$R/QC-RESULT.txt"
+  exit 1
+fi
+
 adb shell screencap -p /sdcard/qc-screen.png
 adb pull /sdcard/qc-screen.png "$R/screenshot.png"
-adb logcat -d -t 5000 > "$R/logcat.txt"
-echo "LULUS: APK berhasil dipasang, aktivitas utama dibuka, dan proses aplikasi terdeteksi." | tee "$R/QC-RESULT.txt"
+test -s "$R/screenshot.png"
+echo "LULUS: APK terpasang, aktivitas aplikasi tampil di depan, proses tetap hidup, dan tidak ditemukan crash fatal." | tee "$R/QC-RESULT.txt"
