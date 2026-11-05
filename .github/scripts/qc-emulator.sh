@@ -12,7 +12,23 @@ if [ "$BOOTED" != "1" ]; then
   adb devices -l || true
   exit 1
 fi
-echo "Emulator siap."
+echo "Emulator selesai boot. Memeriksa layanan Android..."
+SERVICES_READY=0
+for attempt in $(seq 1 30); do
+  if adb shell cmd package list packages >/dev/null 2>&1 && adb shell cmd activity get-config >/dev/null 2>&1; then
+    SERVICES_READY=1
+    break
+  fi
+  echo "Layanan package/activity belum siap (percobaan $attempt/30)."
+  sleep 5
+done
+if [ "$SERVICES_READY" != "1" ]; then
+  adb shell getprop > "$R/emulator-properties.txt" 2>&1 || true
+  adb shell dumpsys -l > "$R/emulator-services.txt" 2>&1 || true
+  echo "GAGAL QC: layanan package/activity Android emulator tidak siap; APK belum dapat diuji." | tee "$R/QC-RESULT.txt"
+  exit 1
+fi
+echo "Layanan package dan activity siap."
 
 AAPT="$(find "$SDK/build-tools" -type f -name aapt -print -quit 2>/dev/null || true)"
 if [ -n "$AAPT" ]; then
@@ -32,7 +48,14 @@ if [ "$PACKAGE" != "com.mintatolong.app" ]; then
   echo "GAGAL: package APK tidak sesuai. Diharapkan com.mintatolong.app, ditemukan $PACKAGE." | tee "$R/QC-RESULT.txt"
   exit 1
 fi
-adb install -r "$APK" 2>&1 | tee "$R/install.txt"
+if ! adb install -r "$APK" > "$R/install.txt" 2>&1; then
+  cat "$R/install.txt"
+  adb shell dumpsys -l > "$R/emulator-services.txt" 2>&1 || true
+  adb logcat -d -t 5000 > "$R/logcat-install-failure.txt" 2>&1 || true
+  echo "GAGAL QC: Android Package Manager menolak instalasi atau layanan emulator terputus." | tee "$R/QC-RESULT.txt"
+  exit 1
+fi
+cat "$R/install.txt"
 
 if [ -z "$ACTIVITY" ]; then
   RESOLVED="$(adb shell cmd package resolve-activity --brief "$PACKAGE" 2>/dev/null | tr -d '\r' | tail -n 1)"
