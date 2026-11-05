@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/test-apk-28.yml'
+      - '.github/scripts/qc-emulator.sh'
   workflow_run:
     workflows: ["Build APK Minta Tolong"]
     types: [completed]
