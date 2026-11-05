@@ -12,12 +12,12 @@
 [
 "expo-location",
 {
-"locationWhenInUsePermission": "Minta Tolong menggunakan lokasi Anda untuk menemukan bantuan dalam radius 200 meter sampai 2 km."
+"locationWhenInUsePermission": "Minta Tolong menggunakan lokasi Anda untuk membantu menemukan layanan dan bantuan yang relevan."
 }
 ]
 ],
 "android": {
-"package": "com.mintatolong.uji",
+"package": "com.mintatolong.app",
 "permissions": [
 "ACCESS_COARSE_LOCATION",
 "ACCESS_FINE_LOCATION"
