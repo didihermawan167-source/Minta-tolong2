@@ -2,6 +2,18 @@ name: Pemeriksaan Kode Tanpa Build APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'components/**'
+      - 'assets/**'
+      - 'app.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
   pull_request:
     branches:
       - main
