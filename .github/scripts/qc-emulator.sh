@@ -74,23 +74,30 @@ adb logcat -c
 # Do not trust am start -W alone: on slow emulators it can time out while
 # the app is still loading. Verify the foreground activity and process later.
 adb shell am start -n "$ACTIVITY" 2>&1 | tee "$R/launch.txt"
+# Allow the React Native screen to settle, then collect evidence before
+# deciding whether the UI is acceptable.
 sleep 35
-# Capture the visible Android window tree. Shared Linux emulators can stall
-# their own system process under CPU pressure; preserve that warning, but fail
-# only when the Minta Tolong app itself is reported as unresponsive.
+adb shell screencap -p /sdcard/qc-screen.png
+adb pull /sdcard/qc-screen.png "$R/screenshot.png" >/dev/null 2>&1 || true
+adb shell dumpsys meminfo > "$R/meminfo.txt" 2>&1 || true
+adb shell dumpsys cpuinfo > "$R/cpuinfo.txt" 2>&1 || true
+adb shell dumpsys window windows > "$R/windows.txt" 2>&1 || true
 if adb shell uiautomator dump /sdcard/qc-window.xml >/dev/null 2>&1; then
   adb pull /sdcard/qc-window.xml "$R/window.xml" >/dev/null 2>&1 || true
 fi
-if [ -s "$R/window.xml" ] && grep -Eiq 'text="(Minta Tolong|com\.mintatolong\.app).*?(isn.t responding|not responding)' "$R/window.xml"; then
-  adb shell screencap -p /sdcard/qc-screen.png
-  adb pull /sdcard/qc-screen.png "$R/screenshot.png" >/dev/null 2>&1 || true
-  echo "GAGAL: dialog aplikasi Minta Tolong tidak merespons terdeteksi." | tee "$R/QC-RESULT.txt"
-  adb logcat -d -t 8000 > "$R/logcat.txt" || true
+# Any Android ANR dialog obscuring the app is a UI failure, including System UI.
+if [ -s "$R/window.xml" ] && grep -Eiq '(System UI|Process system|Minta Tolong|com\\.mintatolong\\.app).*?(isn.t responding|not responding)|text="(Close app|Wait)"' "$R/window.xml"; then
+  adb logcat -d -t 12000 > "$R/logcat.txt" || true
+  echo "GAGAL UI: dialog ANR menutupi aplikasi (aplikasi atau komponen sistem). Tidak boleh dihitung lulus." | tee "$R/QC-RESULT.txt"
   exit 1
 fi
-if [ -s "$R/window.xml" ] && grep -Eiq 'Process system.*(isn.t responding|not responding)' "$R/window.xml"; then
-  echo "PERINGATAN: proses system emulator tidak merespons; pengujian aplikasi dilanjutkan dengan pemeriksaan PID, layar foreground, dan log crash." | tee "$R/system-anr-warning.txt"
+# Require the expected login controls to be present in the accessibility tree.
+if [ ! -s "$R/window.xml" ] || ! grep -Eiq 'Masuk' "$R/window.xml" || ! grep -Eiq 'Daftar' "$R/window.xml"; then
+  adb logcat -d -t 12000 > "$R/logcat.txt" || true
+  echo "GAGAL UI: hierarki layar tidak membuktikan tombol Masuk dan Daftar tampil." | tee "$R/QC-RESULT.txt"
+  exit 1
 fi
+
 adb shell pidof "$PACKAGE" | tee "$R/app-pid.txt"
 test -s "$R/app-pid.txt"
 
