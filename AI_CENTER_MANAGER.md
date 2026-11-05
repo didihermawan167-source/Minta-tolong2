@@ -49,3 +49,16 @@ Ini adalah intake, klasifikasi sederhana, dan antrean tugas otomatis — bukan k
 - Uji langsung Redmi: **belum dikonfirmasi**.
 - APK baru dari commit terbaru: **belum tersedia**.
 - Integrasi autentikasi, chat, riwayat server, rating, dan pembayaran: **belum siap produksi**.
+
+
+## Keputusan Direktur — tanpa build berbayar
+
+Per 5 November 2026, Direktur menetapkan bahwa proyek tidak akan membeli kuota EAS Build atau menggunakan layanan build berbayar untuk tahap ini. Tim harus memaksimalkan APK yang sudah tersedia dan jalur pemeriksaan gratis.
+
+Aturan kerja:
+- Jangan memicu atau meminta build EAS berbayar sebelum Direktur menyetujui pengeluaran.
+- Lanjutkan audit kode, perbaikan yang aman, pemeriksaan dependensi, ekspor bundel, dan tes otomatis gratis.
+- Jangan menyatakan aplikasi siap rilis hanya karena bundel berhasil diekspor.
+- APK yang sudah terpasang digunakan untuk uji alur nyata di Redmi; catat hasil setiap layar dan fungsi.
+- Pengeluaran kuota baru dipertimbangkan setelah alur inti berjalan semestinya, data dan keamanan diperiksa, serta hasil QC menunjukkan aplikasi layak diuji rilis.
+- Pertahankan data akun lokal yang sudah dibuat. Jangan mengubah autentikasi atau melakukan migrasi data tanpa rencana pemulihan.
