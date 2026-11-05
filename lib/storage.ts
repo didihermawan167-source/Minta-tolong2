@@ -1,4 +1,3 @@
-lib/storage.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export async function getItem(key: string) {
