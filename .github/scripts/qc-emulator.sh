@@ -75,21 +75,39 @@ adb logcat -c
 # the app is still loading. Verify the foreground activity and process later.
 adb shell am start -n "$ACTIVITY" 2>&1 | tee "$R/launch.txt"
 sleep 35
-# Capture the visible Android window tree. Shared Linux emulators can stall
-# their own system process under CPU pressure; preserve that warning, but fail
-# only when the Minta Tolong app itself is reported as unresponsive.
+# Preserve evidence before classifying any ANR. These files help distinguish
+# an app-owned ANR from Android system/emulator pressure.
+capture_diagnostics() {
+  adb shell screencap -p /sdcard/qc-screen.png >/dev/null 2>&1 || true
+  adb pull /sdcard/qc-screen.png "$R/screenshot.png" >/dev/null 2>&1 || true
+  adb shell dumpsys activity activities > "$R/activities.txt" 2>&1 || true
+  adb shell dumpsys window windows > "$R/windows.txt" 2>&1 || true
+  adb shell dumpsys activity processes > "$R/activity-processes.txt" 2>&1 || true
+  adb shell dumpsys dropbox --print data_app_anr > "$R/dropbox-app-anr.txt" 2>&1 || true
+  adb shell dumpsys dropbox --print system_app_anr > "$R/dropbox-system-anr.txt" 2>&1 || true
+  adb logcat -b all -d -v threadtime > "$R/logcat-all.txt" 2>&1 || true
+}
+# Capture the visible Android window tree, then preserve a complete diagnostic
+# bundle whenever an ANR signal is present.
 if adb shell uiautomator dump /sdcard/qc-window.xml >/dev/null 2>&1; then
   adb pull /sdcard/qc-window.xml "$R/window.xml" >/dev/null 2>&1 || true
 fi
-if [ -s "$R/window.xml" ] && grep -Eiq 'text="(Minta Tolong|com\.mintatolong\.app).*?(isn.t responding|not responding)' "$R/window.xml"; then
-  adb shell screencap -p /sdcard/qc-screen.png
-  adb pull /sdcard/qc-screen.png "$R/screenshot.png" >/dev/null 2>&1 || true
-  echo "GAGAL: dialog aplikasi Minta Tolong tidak merespons terdeteksi." | tee "$R/QC-RESULT.txt"
-  adb logcat -d -t 8000 > "$R/logcat.txt" || true
-  exit 1
+capture_diagnostics
+ANR_FOUND=0
+if grep -Eiq 'not responding|isn.t responding|ANR in ' "$R/window.xml" "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/dropbox-system-anr.txt" 2>/dev/null; then
+  ANR_FOUND=1
+  grep -Ein -C 3 'not responding|isn.t responding|ANR in |Reason:|Subject:' "$R/window.xml" "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/dropbox-system-anr.txt" > "$R/anr-evidence.txt" 2>/dev/null || true
 fi
-if [ -s "$R/window.xml" ] && grep -Eiq 'Process system.*(isn.t responding|not responding)' "$R/window.xml"; then
-  echo "PERINGATAN: proses system emulator tidak merespons; pengujian aplikasi dilanjutkan dengan pemeriksaan PID, layar foreground, dan log crash." | tee "$R/system-anr-warning.txt"
+if [ "$ANR_FOUND" = "1" ]; then
+  if grep -Eiq 'ANR in com\.mintatolong\.app|Process com\.mintatolong\.app.*(not responding|isn.t responding)|text="Minta Tolong.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/window.xml" 2>/dev/null; then
+    echo "GAGAL QC: bukti ANR mengarah ke proses aplikasi Minta Tolong. Diagnostik lengkap disimpan." | tee "$R/QC-RESULT.txt"
+    exit 1
+  fi
+  if grep -Eiq 'ANR in system|Process system.*(not responding|isn.t responding)|system_server.*ANR' "$R/logcat-all.txt" "$R/dropbox-system-anr.txt" "$R/window.xml" 2>/dev/null; then
+    echo "PERINGATAN QC: ANR terdeteksi pada Android/system emulator; bukti tersimpan. Pemeriksaan aplikasi dilanjutkan." | tee "$R/system-anr-warning.txt"
+  else
+    echo "PERINGATAN QC: sinyal ANR terdeteksi tetapi pemilik proses belum dapat dipastikan. Bukti lengkap disimpan." | tee "$R/anr-owner-unknown.txt"
+  fi
 fi
 adb shell pidof "$PACKAGE" | tee "$R/app-pid.txt"
 test -s "$R/app-pid.txt"
