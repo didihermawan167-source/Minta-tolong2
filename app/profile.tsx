@@ -55,23 +55,13 @@ export default function Profile() {
     if (!user) return;
     setSaving(true);
     try {
-      const { error: profileError } = await supabase.from("user_profiles").upsert({
-        id: user.id,
-        display_name: user.name || "Pengguna",
-        bio: bio.trim(),
-        city: city.trim(),
-        is_provider: selected.length > 0,
-        updated_at: new Date().toISOString(),
+      const { error } = await supabase.rpc("save_provider_profile", {
+        p_display_name: user.name || "Pengguna",
+        p_bio: bio.trim(),
+        p_city: city.trim(),
+        p_category_ids: selected,
       });
-      if (profileError) throw profileError;
-      const { error: deleteError } = await supabase.from("provider_skills").delete().eq("user_id", user.id);
-      if (deleteError) throw deleteError;
-      if (selected.length) {
-        const { error: insertError } = await supabase.from("provider_skills").insert(
-          selected.map((category_id) => ({ user_id: user.id, category_id, experience_description: bio.trim() }))
-        );
-        if (insertError) throw insertError;
-      }
+      if (error) throw error;
       Alert.alert("Tersimpan", "Profil dan keterampilan penyedia bantuan berhasil disimpan.");
     } catch (e) {
       Alert.alert("Belum tersimpan", e instanceof Error ? e.message : "Periksa koneksi, migrasi database, dan izin akun.");
