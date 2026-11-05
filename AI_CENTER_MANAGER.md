@@ -62,3 +62,18 @@ Aturan kerja:
 - APK yang sudah terpasang digunakan untuk uji alur nyata di Redmi; catat hasil setiap layar dan fungsi.
 - Pengeluaran kuota baru dipertimbangkan setelah alur inti berjalan semestinya, data dan keamanan diperiksa, serta hasil QC menunjukkan aplikasi layak diuji rilis.
 - Pertahankan data akun lokal yang sudah dibuat. Jangan mengubah autentikasi atau melakukan migrasi data tanpa rencana pemulihan.
+
+## Hasil investigasi ANR QC — bukti pembanding, 5 November 2026
+
+- QC run #27 (41959499900) menguji build sumber 41954327967. APK SHA-256: 8aa8a33a50cc1d4c4526f387857c5923957db1995ca22917eadd6067e0822120. Instalasi berhasil, aplikasi tampil di foreground, proses hidup, dan tidak ada crash fatal. Hasil: LULUS.
+- QC run #28 (41970447479) menguji build sumber yang sama, 41954327967, dengan SHA-256 APK yang sama persis: 8aa8a33a50cc1d4c4526f387857c5923957db1995ca22917eadd6067e0822120. Instalasi dan perintah membuka aplikasi berhasil, tetapi pemeriksaan UI mendeteksi dialog ANR menutupi aplikasi. Hasil: GAGAL QC.
+- Perbandingan commit 08b12beb (run #27) ke 5fc3661d (run #28) hanya menunjukkan perubahan pada .github/scripts/qc-emulator.sh dan .github/workflows/test-apk-28.yml; tidak ada file aplikasi yang berubah di rentang tersebut.
+- Karena APK identik pernah lulus dan kemudian gagal dengan dialog ANR, bukti saat ini belum membuktikan bug baru pada kode aplikasi. Ini mengarah pada kemungkinan ketidakstabilan emulator/host atau kondisi ANR sementara, tetapi penyebab pastinya belum terbukti.
+- Log run #28 menunjukkan pemeriksaan lama mengklasifikasikan dialog ANR sebagai aplikasi atau komponen sistem; log itu tidak mengidentifikasi proses pemilik dialog. Jangan menghapus pemeriksaan ANR atau mengubah kode aplikasi hanya untuk membuat QC hijau.
+- Run QC #30 (41981410689) berstatus SKIPPED karena build sumber #46 gagal lebih dulu. Build #46 (41981304791) gagal karena kuota EAS Build gratis bulan ini habis. Tidak ada APK baru yang dihasilkan dari commit tersebut.
+
+### Tindakan lanjutan yang aman
+1. Pertahankan status run #28 sebagai kegagalan QC yang sah; jangan ubah menjadi lulus secara administratif.
+2. Pada pengujian emulator gratis berikutnya, rekam window.xml, screenshot, dumpsys activity, dumpsys window, dan logcat ANR lengkap; identifikasi apakah dialog berasal dari proses aplikasi, system, atau layanan emulator sebelum mengambil keputusan.
+3. Bandingkan kondisi emulator pada satu APK yang sama dan gunakan hasil ulangan untuk menentukan apakah ANR dapat direproduksi.
+4. Jangan memicu EAS Build berbayar atau mengubah file aplikasi sampai ada bukti yang mengaitkan ANR dengan kode aplikasi dan persetujuan biaya bila diperlukan.
