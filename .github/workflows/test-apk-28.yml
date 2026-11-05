@@ -8,6 +8,12 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/test-apk-28.yml'
+      - '.github/scripts/qc-emulator.sh'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/test-apk-28.yml'
+      - '.github/scripts/qc-emulator.sh'
   workflow_run:
     workflows: ["Build APK Minta Tolong"]
     types: [completed]
@@ -25,7 +31,7 @@ concurrency:
 
 jobs:
   test-apk:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
