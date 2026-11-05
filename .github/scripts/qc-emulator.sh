@@ -104,7 +104,22 @@ if [ "$ANR_FOUND" = "1" ]; then
     exit 1
   fi
   if grep -Eiq 'ANR in system|Process system.*(not responding|isn.t responding)|system_server.*ANR' "$R/logcat-all.txt" "$R/dropbox-system-anr.txt" "$R/window.xml" 2>/dev/null; then
-    echo "PERINGATAN QC: ANR terdeteksi pada Android/system emulator; bukti tersimpan. Pemeriksaan aplikasi dilanjutkan." | tee "$R/system-anr-warning.txt"
+    echo "PERINGATAN QC: dialog ANR berasal dari Android System UI, bukan proses Minta Tolong. Mencoba memulihkan emulator tanpa menutup aplikasi." | tee "$R/system-anr-warning.txt"
+    if grep -Fq 'System UI isn' "$R/window.xml"; then
+      # Choose Android's Wait action, never Close app, then allow System UI to recover.
+      adb shell input tap 540 1059 || true
+      sleep 20
+      adb shell dumpsys activity activities > "$R/activities-after-system-recovery.txt" 2>&1 || true
+      adb shell dumpsys window windows > "$R/windows-after-system-recovery.txt" 2>&1 || true
+      adb logcat -b all -d -v threadtime > "$R/logcat-after-system-recovery.txt" 2>&1 || true
+      adb shell screencap -p /sdcard/qc-screen-recovered.png >/dev/null 2>&1 || true
+      adb pull /sdcard/qc-screen-recovered.png "$R/screenshot-after-system-recovery.png" >/dev/null 2>&1 || true
+      if grep -Fq 'ResumedActivity' "$R/activities-after-system-recovery.txt" && grep -Fq 'com.mintatolong.app' "$R/activities-after-system-recovery.txt"; then
+        echo "System UI kembali memberi kesempatan aplikasi Minta Tolong tetap berada di depan setelah tindakan Wait." | tee "$R/system-anr-recovery.txt"
+      else
+        echo "System UI belum pulih dengan jelas; bukti tambahan disimpan dan hasil perlu pemeriksaan manual." | tee "$R/system-anr-recovery.txt"
+      fi
+    fi
   else
     echo "PERINGATAN QC: sinyal ANR terdeteksi tetapi pemilik proses belum dapat dipastikan. Bukti lengkap disimpan." | tee "$R/anr-owner-unknown.txt"
   fi
