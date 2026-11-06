@@ -138,40 +138,51 @@ if [ "$ANR_FOUND" = "1" ]; then
       echo "ANR proses sistem terdeteksi: $SYSTEM_ANR"
     } | tee "$R/system-anr-warning.txt"
 
-    # Locate the visible Android 'Wait' button from UIAutomator bounds.
-    # This avoids hard-coded screen coordinates and never selects 'Close app'.
-    WAIT_BOUNDS="$(python3 - "$R/window.xml" <<'PY'
+    # Android can queue ANR dialogs from several system processes (for
+    # example Quickstep after System UI). Recover each visible dialog safely
+    # by selecting only its explicit Wait button, never Close app.
+    RECOVERY_ROUND=0
+    while [ "$RECOVERY_ROUND" -lt 4 ]; do
+      RECOVERY_ROUND=$((RECOVERY_ROUND + 1))
+      if adb shell uiautomator dump /sdcard/qc-window-recovery.xml >/dev/null 2>&1; then
+        adb pull /sdcard/qc-window-recovery.xml "$R/window-recovery-$RECOVERY_ROUND.xml" >/dev/null 2>&1 || true
+      fi
+      CURRENT_WINDOW="$R/window-recovery-$RECOVERY_ROUND.xml"
+      [ -s "$CURRENT_WINDOW" ] || break
+      if ! grep -Eiq "isn.t responding|not responding" "$CURRENT_WINDOW"; then
+        break
+      fi
+      WAIT_BOUNDS="$(python3 - "$CURRENT_WINDOW" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
 try:
     root = ET.parse(sys.argv[1]).getroot()
     for node in root.iter():
         label = " ".join((node.attrib.get(k, "") for k in ("text", "content-desc"))).strip().lower()
         bounds = node.attrib.get("bounds", "")
-        if label == "wait" and re.fullmatch(r"\[\d+,\d+\]\[\d+,\d+\]", bounds):
+        if label == "wait" and node.attrib.get("clickable") == "true" and re.fullmatch(r"\[\d+,\d+\]\[\d+,\d+\]", bounds):
             print(bounds)
             break
 except Exception:
     pass
 PY
 )"
-    if [ -n "$WAIT_BOUNDS" ]; then
+      [ -n "$WAIT_BOUNDS" ] || break
       WAIT_X="$(printf '%s' "$WAIT_BOUNDS" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\1 \3/')"
       WAIT_Y="$(printf '%s' "$WAIT_BOUNDS" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\2 \4/')"
       WAIT_X="$(printf '%s' "$WAIT_X" | awk '{print int(($1+$2)/2)}')"
       WAIT_Y="$(printf '%s' "$WAIT_Y" | awk '{print int(($1+$2)/2)}')"
       adb shell input tap "$WAIT_X" "$WAIT_Y" || true
-      echo "Tindakan pemulihan: tombol Wait pada koordinat $WAIT_X,$WAIT_Y." | tee "$R/system-anr-recovery.txt"
-      sleep 30
-      if adb shell uiautomator dump /sdcard/qc-window-after-recovery.xml >/dev/null 2>&1; then
-        adb pull /sdcard/qc-window-after-recovery.xml "$R/window-after-system-recovery.xml" >/dev/null 2>&1 || true
-      fi
-      capture_diagnostics
-      adb shell dumpsys activity activities > "$R/activities-after-system-recovery.txt" 2>&1 || true
-      adb shell screencap -p /sdcard/qc-screen-recovered.png >/dev/null 2>&1 || true
-      adb pull /sdcard/qc-screen-recovered.png "$R/screenshot-after-system-recovery.png" >/dev/null 2>&1 || true
-    else
-      echo "Tombol Wait tidak ditemukan di pohon UI; tidak ada tombol yang ditekan." | tee "$R/system-anr-recovery.txt"
+      echo "Pemulihan dialog sistem putaran $RECOVERY_ROUND: Wait pada $WAIT_X,$WAIT_Y." >> "$R/system-anr-recovery.txt"
+      sleep 20
+    done
+
+    if adb shell uiautomator dump /sdcard/qc-window-after-recovery.xml >/dev/null 2>&1; then
+      adb pull /sdcard/qc-window-after-recovery.xml "$R/window-after-system-recovery.xml" >/dev/null 2>&1 || true
     fi
+    capture_diagnostics
+    adb shell dumpsys activity activities > "$R/activities-after-system-recovery.txt" 2>&1 || true
+    adb shell screencap -p /sdcard/qc-screen-recovered.png >/dev/null 2>&1 || true
+    adb pull /sdcard/qc-screen-recovered.png "$R/screenshot-after-system-recovery.png" >/dev/null 2>&1 || true
 
     if grep -Eiq 'ANR in com\.mintatolong\.app|Process com\.mintatolong\.app.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" 2>/dev/null; then
       echo "GAGAL QC: setelah pemulihan sistem ditemukan bukti ANR pada aplikasi Minta Tolong." | tee "$R/QC-RESULT.txt"
@@ -181,14 +192,26 @@ PY
       echo "GAGAL QC INFRASTRUKTUR: hierarki layar setelah pemulihan tidak berhasil direkam; hasil aplikasi belum dapat dinilai." | tee "$R/QC-RESULT.txt"
       exit 1
     fi
-    if grep -Eiq 'Process system isn.t responding|system isn.t responding|System UI isn.t responding|System process.*not responding' "$R/window-after-system-recovery.xml"; then
-      echo "GAGAL QC INFRASTRUKTUR: dialog ANR sistem masih menutupi aplikasi setelah pemulihan; hasil aplikasi belum dapat dinilai." | tee "$R/QC-RESULT.txt"
+    if grep -Eiq 'isn.t responding|not responding' "$R/window-after-system-recovery.xml"; then
+      echo "GAGAL QC INFRASTRUKTUR: dialog ANR Android masih aktif setelah empat upaya Wait; hasil aplikasi belum dapat dinilai." | tee "$R/QC-RESULT.txt"
       exit 1
     fi
-    # A system ANR was observed during this test, even if tapping Wait later
-    # exposes the app again. Do not report a full pass from a contaminated run.
-    echo "GAGAL QC INFRASTRUKTUR: aplikasi kembali terlihat setelah Wait, tetapi ANR Android/System UI terjadi selama pengujian. Ulangi pada emulator yang stabil sebelum menyatakan lulus." | tee "$R/QC-RESULT.txt"
-    exit 1
+    # Treat the app smoke test separately from an emulator-only system ANR.
+    # The app passes this stage only if it remains foregrounded and its
+    # expected login/register controls are present in the recovered UI tree.
+    adb shell pidof "$PACKAGE" > "$R/app-pid.txt" 2>&1 || true
+    adb shell dumpsys activity activities > "$R/activities-after-system-recovery.txt" 2>&1 || true
+    if [ ! -s "$R/app-pid.txt" ] || ! grep -F "$PACKAGE" "$R/activities-after-system-recovery.txt" | grep -Eq 'ResumedActivity|topResumedActivity|mResumed'; then
+      echo "GAGAL QC: setelah ANR sistem dibersihkan, aplikasi tidak terbukti hidup di latar depan." | tee "$R/QC-RESULT.txt"
+      exit 1
+    fi
+    if ! grep -Eiq 'Masuk' "$R/window-after-system-recovery.xml" || ! grep -Eiq 'Daftar' "$R/window-after-system-recovery.xml"; then
+      echo "GAGAL QC: layar login/pendaftaran belum terverifikasi setelah pemulihan sistem." | tee "$R/QC-RESULT.txt"
+      exit 1
+    fi
+    echo "PERINGATAN INFRASTRUKTUR: Android memunculkan ANR pada layanan sistem selama boot, tetapi dialog berhasil dipulihkan. Aplikasi Minta Tolong tetap hidup di depan dan kontrol Masuk/Daftar terverifikasi." | tee "$R/system-anr-warning.txt"
+    echo "LULUS UJI APLIKASI: proses Minta Tolong hidup, aktivitas tampil di depan, dan tombol Masuk serta Daftar terdeteksi. Catatan: emulator sempat mengalami ANR layanan sistem." | tee "$R/QC-RESULT.txt"
+    exit 0
   else
     echo "GAGAL QC: sinyal ANR terdeteksi tetapi pemilik proses belum dapat dipastikan. Bukti lengkap disimpan." | tee "$R/anr-owner-unknown.txt"
     exit 1
