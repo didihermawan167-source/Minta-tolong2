@@ -76,6 +76,18 @@ export default function Home() {
           <Text style={s.tileSub}>Akun dan penilaian</Text>
         </Pressable>
       </View>
+      <View style={s.marketplace}>
+        <Text style={s.marketTitle}>Marketplace Jasa</Text>
+        <Pressable style={s.marketItem} onPress={() => router.push("/services")}>
+          <Text style={s.marketEmoji}>🧰</Text><Text style={s.marketText}>Cari Jasa</Text><Text style={s.marketArrow}>›</Text>
+        </Pressable>
+        <Pressable style={s.marketItem} onPress={() => router.push("/provider")}>
+          <Text style={s.marketEmoji}>🧑‍🔧</Text><Text style={s.marketText}>Daftar Penyedia Jasa</Text><Text style={s.marketArrow}>›</Text>
+        </Pressable>
+        <Pressable style={s.marketItem} onPress={() => router.push("/payments")}>
+          <Text style={s.marketEmoji}>💳</Text><Text style={s.marketText}>Pembayaran & Komisi</Text><Text style={s.marketArrow}>›</Text>
+        </Pressable>
+      </View>
       <View style={s.footer}><Text style={s.footerText}>🤝 Bersama, saling membantu</Text></View>
     </View>
   );
@@ -120,6 +132,12 @@ const s = StyleSheet.create({
   ti: { fontSize: 26 },
   tileTitle: { color: "#172033", fontWeight: "800", fontSize: 13 },
   tileSub: { color: "#87909e", fontSize: 10, marginTop: 4 },
+  marketplace: { marginTop: 15, backgroundColor: "#fff", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#edf0f5" },
+  marketTitle: { fontSize: 16, fontWeight: "800", color: "#172033", marginBottom: 5 },
+  marketItem: { flexDirection: "row", alignItems: "center", paddingVertical: 11, borderTopWidth: 1, borderTopColor: "#f0f2f5" },
+  marketEmoji: { fontSize: 21, width: 38 },
+  marketText: { flex: 1, fontSize: 13, fontWeight: "700", color: "#344054" },
+  marketArrow: { fontSize: 23, color: "#98a2b3" },
   footer: { alignItems: "center", marginTop: 22 },
   footerText: { color: "#98a2b3", fontSize: 12 }
 });
