@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, Alert, ScrollView } from "react-native";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { getItem } from "../lib/storage";
@@ -24,7 +24,7 @@ export default function Home() {
   }, []);
 
   return (
-    <View style={s.wrap}>
+    <ScrollView style={s.wrap} contentContainerStyle={s.content}>
       <View style={s.head}>
         <View>
           <Text style={s.small}>Halo 👋 Selamat datang</Text>
@@ -89,12 +89,13 @@ export default function Home() {
         </Pressable>
       </View>
       <View style={s.footer}><Text style={s.footerText}>🤝 Bersama, saling membantu</Text></View>
-    </View>
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  wrap: { flex: 1, padding: 20, backgroundColor: "#f5f7fb" },
+  wrap: { flex: 1, backgroundColor: "#f5f7fb" },
+  content: { padding: 20, paddingBottom: 36 },
   head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 },
   small: { color: "#77808d", fontSize: 14 },
   name: { fontSize: 25, fontWeight: "800", color: "#172033", marginTop: 2 },
