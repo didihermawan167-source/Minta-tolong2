@@ -30,6 +30,13 @@ if [ "$SERVICES_READY" != "1" ]; then
 fi
 echo "Layanan package dan activity siap."
 
+# Avoid emulator-only Bluetooth service contention seen in the prior system ANR.
+echo "Menonaktifkan adapter Bluetooth virtual sebelum uji aplikasi..."
+adb shell settings put global bluetooth_on 0 >/dev/null 2>&1 || true
+adb shell cmd bluetooth_manager disable >/dev/null 2>&1 || true
+adb shell am force-stop com.android.bluetooth >/dev/null 2>&1 || true
+sleep 10
+
 # Reduce Android emulator background-service pressure before launching the app.
 # Bluetooth is not needed by Minta Tolong's current QC path; disabling it is
 # an environment-only mitigation, not an application-code change.
