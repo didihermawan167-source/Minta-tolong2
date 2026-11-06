@@ -125,7 +125,7 @@ jobs:
           if [ ! -s test-results/QC-RESULT.txt ]; then
             printf '%s\\n' "GAGAL QC INFRASTRUKTUR: langkah emulator berakhir dengan outcome ${{ steps.emulator-qc.outcome }} sebelum skrip QC menghasilkan laporan. Periksa runner-diagnostics." > test-results/QC-RESULT.txt
           fi
-          find "$HOME/.android" "$RUNNER_TEMP" -maxdepth 4 -type f \\( -iname '*emulator*.log' -o -iname '*qemu*.log' -o -iname '*adb*.log' \\) -size -20M -print 2>/dev/null | head -30 > "$D/host-log-index.txt" || true
+          find "$HOME/.android" "$RUNNER_TEMP" -maxdepth 4 -type f \( -iname '*emulator*.log' -o -iname '*qemu*.log' -o -iname '*adb*.log' \) -size -20M -print 2>/dev/null | head -30 > "$D/host-log-index.txt" || true
           while IFS= read -r file; do
             [ -f "$file" ] || continue
             cp "$file" "$D/$(basename "$file")" 2>/dev/null || true
