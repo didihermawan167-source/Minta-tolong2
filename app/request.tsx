@@ -7,7 +7,7 @@ Pressable,
 StyleSheet,
 Alert,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import { supabase } from "../lib/supabase";
 
