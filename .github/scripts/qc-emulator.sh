@@ -14,21 +14,40 @@ if [ "$BOOTED" != "1" ]; then
 fi
 echo "Emulator selesai boot. Memeriksa layanan Android..."
 SERVICES_READY=0
-for attempt in $(seq 1 30); do
-  if adb shell cmd package list packages >/dev/null 2>&1 && adb shell cmd activity get-config >/dev/null 2>&1; then
+for attempt in $(seq 1 36); do
+  PACKAGE_CHECK="$R/package-service-check.txt"
+  ACTIVITY_CHECK="$R/activity-service-check.txt"
+  STORAGE_CHECK="$R/storage-service-check.txt"
+  PACKAGE_OK=0
+  ACTIVITY_OK=0
+  STORAGE_OK=0
+  adb shell cmd package list packages > "$PACKAGE_CHECK" 2>&1 && PACKAGE_OK=1 || true
+  adb shell cmd activity get-config > "$ACTIVITY_CHECK" 2>&1 && ACTIVITY_OK=1 || true
+  # PackageInstaller calls StorageManager.getVolumes(); do not attempt install
+  # until Android's storage service responds without a framework exception.
+  adb shell sm list-volumes all > "$STORAGE_CHECK" 2>&1 && STORAGE_OK=1 || true
+  if [ "$PACKAGE_OK" = "1" ] && [ "$ACTIVITY_OK" = "1" ] && [ "$STORAGE_OK" = "1" ] &&
+     ! grep -Eiq 'NullPointerException|Can.t find service|Exception occurred' "$STORAGE_CHECK"; then
     SERVICES_READY=1
     break
   fi
-  echo "Layanan package/activity belum siap (percobaan $attempt/30)."
+  echo "Menunggu package/activity/storage siap (percobaan $attempt/36; package=$PACKAGE_OK activity=$ACTIVITY_OK storage=$STORAGE_OK)."
   sleep 5
 done
 if [ "$SERVICES_READY" != "1" ]; then
   adb shell getprop > "$R/emulator-properties.txt" 2>&1 || true
   adb shell dumpsys -l > "$R/emulator-services.txt" 2>&1 || true
-  echo "GAGAL QC: layanan package/activity Android emulator tidak siap; APK belum dapat diuji." | tee "$R/QC-RESULT.txt"
+  adb shell dumpsys mount > "$R/mount-service.txt" 2>&1 || true
+  adb logcat -b all -d -v threadtime > "$R/logcat-boot-services.txt" 2>&1 || true
+  echo "GAGAL QC INFRASTRUKTUR: layanan package/activity/storage Android belum siap. Instalasi APK tidak dijalankan karena PackageInstaller bergantung pada StorageManager." | tee "$R/QC-RESULT.txt"
   exit 1
 fi
-echo "Layanan package dan activity siap."
+echo "Layanan package, activity, dan storage siap."
+# Bluetooth is not required by this smoke test; reduce unrelated emulator
+# background load before installing and launching the application.
+adb shell svc bluetooth disable > "$R/bluetooth-disable.txt" 2>&1 || true
+adb shell settings put global bluetooth_on 0 >> "$R/bluetooth-disable.txt" 2>&1 || true
+sleep 3
 
 AAPT="$(find "$SDK/build-tools" -type f -name aapt -print -quit 2>/dev/null || true)"
 if [ -n "$AAPT" ]; then
@@ -48,11 +67,27 @@ if [ "$PACKAGE" != "com.mintatolong.app" ]; then
   echo "GAGAL: package APK tidak sesuai. Diharapkan com.mintatolong.app, ditemukan $PACKAGE." | tee "$R/QC-RESULT.txt"
   exit 1
 fi
-if ! adb install -r "$APK" > "$R/install.txt" 2>&1; then
-  cat "$R/install.txt"
+INSTALL_OK=0
+for attempt in 1 2 3; do
+  if adb install -r "$APK" > "$R/install-attempt-$attempt.txt" 2>&1; then
+    cp "$R/install-attempt-$attempt.txt" "$R/install.txt"
+    INSTALL_OK=1
+    break
+  fi
+  cat "$R/install-attempt-$attempt.txt"
+  # If PackageInstaller still reports a framework/storage failure, stop
+  # retrying blindly and preserve evidence for an infrastructure diagnosis.
+  if grep -Eiq 'StorageManager.getVolumes|NullPointerException|PackageInstallerService' "$R/install-attempt-$attempt.txt"; then
+    break
+  fi
+  sleep 8
+done
+if [ "$INSTALL_OK" != "1" ]; then
   adb shell dumpsys -l > "$R/emulator-services.txt" 2>&1 || true
-  adb logcat -d -t 5000 > "$R/logcat-install-failure.txt" 2>&1 || true
-  echo "GAGAL QC: Android Package Manager menolak instalasi atau layanan emulator terputus." | tee "$R/QC-RESULT.txt"
+  adb shell dumpsys mount > "$R/mount-service-after-install.txt" 2>&1 || true
+  adb shell sm list-volumes all > "$R/storage-volumes-after-install.txt" 2>&1 || true
+  adb logcat -b all -d -v threadtime > "$R/logcat-install-failure.txt" 2>&1 || true
+  echo "GAGAL QC INFRASTRUKTUR: PackageInstaller gagal; APK belum dapat dinilai. Lihat log instalasi dan layanan storage." | tee "$R/QC-RESULT.txt"
   exit 1
 fi
 cat "$R/install.txt"
