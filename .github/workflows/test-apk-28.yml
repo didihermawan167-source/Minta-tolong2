@@ -79,7 +79,8 @@ jobs:
           arch: x86_64
           profile: pixel_2
           emulator-boot-timeout: 900
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data -camera-back none
+          # A/B experiment: keep all other AVD settings fixed; compare auto against swiftshader_indirect baseline.
+          emulator-options: -no-window -gpu auto -noaudio -no-boot-anim -no-snapshot -wipe-data -camera-back none
           disable-animations: true
           script: |
             sh "$GITHUB_WORKSPACE/.github/scripts/qc-emulator.sh"
