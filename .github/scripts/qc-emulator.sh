@@ -104,9 +104,24 @@ if grep -F "ANR in $PACKAGE" "$R/logcat.txt" > "$R/app-anr.txt"; then
 fi
 
 if [ -s "$R/window.xml" ] && grep -Fq 'text="Process system isn' "$R/window.xml"; then
-  grep -E 'ANR in |Reason:|Input dispatching timed out' "$R/logcat.txt" > "$R/emulator-anr.txt" || true
-  if [ ! -s "$R/emulator-anr.txt" ]; then
-    echo "GAGAL QC: dialog Process system tidak merespons muncul, tetapi pemilik ANR tidak dapat dipastikan." | tee "$R/QC-RESULT.txt"
+  # Record the exact process Android was collecting when it raised the ANR.
+  # The dialog title is generic; the PID owner determines whether this is
+  # an app failure or an unrelated emulator service failure.
+  adb shell ps -A > "$R/process-list.txt" 2>&1 || true
+  adb shell dumpsys activity lastanr > "$R/last-anr.txt" 2>&1 || true
+  adb shell dumpsys dropbox --print data_app_anr > "$R/data-app-anr.txt" 2>&1 || true
+  adb shell dumpsys dropbox --print system_app_anr > "$R/system-app-anr.txt" 2>&1 || true
+  grep -E 'ANR in |Reason:|Input dispatching timed out|Collecting stacks for pid|Dumping to /data/anr' "$R/logcat.txt" > "$R/emulator-anr.txt" || true
+  ANR_PID="$(sed -n 's/.*Collecting stacks for pid \\([0-9][0-9]*\\).*/\\1/p' "$R/logcat.txt" | tail -n 1)"
+  if [ -n "$ANR_PID" ]; then
+    grep -E "^[[:space:]]*$ANR_PID[[:space:]]|^[[:space:]]*$ANR_PID$" "$R/process-list.txt" > "$R/anr-process-owner.txt" || true
+  fi
+  if grep -Fq "$PACKAGE" "$R/anr-process-owner.txt" 2>/dev/null; then
+    echo "GAGAL APLIKASI: PID ANR teridentifikasi sebagai $PACKAGE." | tee "$R/QC-RESULT.txt"
+    exit 1
+  fi
+  if [ ! -s "$R/emulator-anr.txt" ] && [ ! -s "$R/anr-process-owner.txt" ]; then
+    echo "GAGAL QC: dialog ANR muncul, tetapi pemilik proses belum dapat dipastikan; bukti proses disimpan." | tee "$R/QC-RESULT.txt"
     exit 1
   fi
   WAIT_BOUNDS="$(grep -o 'resource-id="android:id/aerr_wait"[^>]*' "$R/window.xml" | grep -o 'bounds="[^"]*"' | sed 's/[^0-9]/ /g' | xargs)"
