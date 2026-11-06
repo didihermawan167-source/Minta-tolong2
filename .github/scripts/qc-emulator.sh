@@ -178,6 +178,10 @@ PY
       echo "GAGAL QC INFRASTRUKTUR: dialog ANR sistem masih menutupi aplikasi setelah pemulihan; hasil aplikasi belum dapat dinilai." | tee "$R/QC-RESULT.txt"
       exit 1
     fi
+    # A system ANR was observed during this test, even if tapping Wait later
+    # exposes the app again. Do not report a full pass from a contaminated run.
+    echo "GAGAL QC INFRASTRUKTUR: aplikasi kembali terlihat setelah Wait, tetapi ANR Android/System UI terjadi selama pengujian. Ulangi pada emulator yang stabil sebelum menyatakan lulus." | tee "$R/QC-RESULT.txt"
+    exit 1
   else
     echo "GAGAL QC: sinyal ANR terdeteksi tetapi pemilik proses belum dapat dipastikan. Bukti lengkap disimpan." | tee "$R/anr-owner-unknown.txt"
     exit 1
