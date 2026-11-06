@@ -162,7 +162,11 @@ PY
       echo "GAGAL QC: setelah pemulihan sistem ditemukan bukti ANR pada aplikasi Minta Tolong." | tee "$R/QC-RESULT.txt"
       exit 1
     fi
-    if grep -Eiq 'Process system isn.t responding|system isn.t responding|System UI isn.t responding' "$R/window-after-system-recovery.xml" 2>/dev/null; then
+    if [ ! -s "$R/window-after-system-recovery.xml" ]; then
+      echo "GAGAL QC INFRASTRUKTUR: hierarki layar setelah pemulihan tidak berhasil direkam; hasil aplikasi belum dapat dinilai." | tee "$R/QC-RESULT.txt"
+      exit 1
+    fi
+    if grep -Eiq 'Process system isn.t responding|system isn.t responding|System UI isn.t responding|System process.*not responding' "$R/window-after-system-recovery.xml"; then
       echo "GAGAL QC INFRASTRUKTUR: dialog ANR sistem masih menutupi aplikasi setelah pemulihan; hasil aplikasi belum dapat dinilai." | tee "$R/QC-RESULT.txt"
       exit 1
     fi
