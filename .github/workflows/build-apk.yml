@@ -81,3 +81,14 @@ jobs:
           path: minta-tolong.apk
           if-no-files-found: error
           retention-days: 7
+
+      - name: Buat ZIP cadangan source proyek
+        run: git archive --format=zip --output=minta-tolong-source.zip HEAD
+
+      - name: Simpan ZIP source untuk diunduh
+        uses: actions/upload-artifact@v4
+        with:
+          name: minta-tolong-source
+          path: minta-tolong-source.zip
+          if-no-files-found: error
+          retention-days: 7
