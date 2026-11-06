@@ -99,29 +99,73 @@ if grep -Eiq 'not responding|isn.t responding|ANR in ' "$R/window.xml" "$R/logca
   grep -Ein -C 3 'not responding|isn.t responding|ANR in |Reason:|Subject:' "$R/window.xml" "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/dropbox-system-anr.txt" > "$R/anr-evidence.txt" 2>/dev/null || true
 fi
 if [ "$ANR_FOUND" = "1" ]; then
-  if grep -Eiq 'ANR in com\.mintatolong\.app|Process com\.mintatolong\.app.*(not responding|isn.t responding)|text="Minta Tolong.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/window.xml" 2>/dev/null; then
+  if grep -Eiq 'ANR in com\\.mintatolong\\.app|Process com\\.mintatolong\\.app.*(not responding|isn.t responding)|text="Minta Tolong.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/window.xml" 2>/dev/null; then
     echo "GAGAL QC: bukti ANR mengarah ke proses aplikasi Minta Tolong. Diagnostik lengkap disimpan." | tee "$R/QC-RESULT.txt"
     exit 1
   fi
-  if grep -Eiq 'ANR in system|Process system.*(not responding|isn.t responding)|system_server.*ANR' "$R/logcat-all.txt" "$R/dropbox-system-anr.txt" "$R/window.xml" 2>/dev/null; then
-    echo "PERINGATAN QC: dialog ANR berasal dari Android System UI, bukan proses Minta Tolong. Mencoba memulihkan emulator tanpa menutup aplikasi." | tee "$R/system-anr-warning.txt"
-    if grep -Fq 'System UI isn' "$R/window.xml"; then
-      # Choose Android's Wait action, never Close app, then allow System UI to recover.
-      adb shell input tap 540 1059 || true
-      sleep 20
+
+  # Android may show a generic system ANR dialog while a different system
+  # process (for example Bluetooth) is blocked. Classify it separately from
+  # an ANR owned by the app; never tap Close app.
+  SYSTEM_DIALOG=0
+  if grep -Eiq 'Process system isn.t responding|system isn.t responding|System UI isn.t responding|System process.*not responding' "$R/window.xml"; then
+    SYSTEM_DIALOG=1
+  fi
+  SYSTEM_ANR=0
+  if grep -Eiq 'ANR in (system|com\\.android\\.bluetooth)|Process (system|com\\.android\\.bluetooth).*not responding|system_server.*ANR' "$R/logcat-all.txt" "$R/dropbox-system-anr.txt" 2>/dev/null; then
+    SYSTEM_ANR=1
+  fi
+
+  if [ "$SYSTEM_DIALOG" = "1" ] || [ "$SYSTEM_ANR" = "1" ]; then
+    {
+      echo "PERINGATAN QC: ANR/dialog berasal dari Android atau layanan sistem, bukan bukti ANR aplikasi Minta Tolong."
+      echo "Dialog sistem terdeteksi: $SYSTEM_DIALOG"
+      echo "ANR proses sistem terdeteksi: $SYSTEM_ANR"
+    } | tee "$R/system-anr-warning.txt"
+
+    # Locate the visible Android 'Wait' button from UIAutomator bounds.
+    # This avoids hard-coded screen coordinates and never selects 'Close app'.
+    WAIT_BOUNDS="$(python3 - "$R/window.xml" <<'PY'
+import re, sys, xml.etree.ElementTree as ET
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+    for node in root.iter():
+        label = " ".join((node.attrib.get(k, "") for k in ("text", "content-desc"))).strip().lower()
+        bounds = node.attrib.get("bounds", "")
+        if label == "wait" and re.fullmatch(r"\\[\\d+,\\d+\\]\\[\\d+,\\d+\\]", bounds):
+            print(bounds)
+            break
+except Exception:
+    pass
+PY
+)"
+    if [ -n "$WAIT_BOUNDS" ]; then
+      WAIT_X="$(printf '%s' "$WAIT_BOUNDS" | sed -E 's/\\[([0-9]+),([0-9]+)\\]\\[([0-9]+),([0-9]+)\\]/\\1 \\3/')"
+      WAIT_Y="$(printf '%s' "$WAIT_BOUNDS" | sed -E 's/\\[([0-9]+),([0-9]+)\\]\\[([0-9]+),([0-9]+)\\]/\\2 \\4/')"
+      WAIT_X="$(printf '%s' "$WAIT_X" | awk '{print int(($1+$2)/2)}')"
+      WAIT_Y="$(printf '%s' "$WAIT_Y" | awk '{print int(($1+$2)/2)}')"
+      adb shell input tap "$WAIT_X" "$WAIT_Y" || true
+      echo "Tindakan pemulihan: tombol Wait pada koordinat $WAIT_X,$WAIT_Y." | tee "$R/system-anr-recovery.txt"
+      sleep 30
+      capture_diagnostics
       adb shell dumpsys activity activities > "$R/activities-after-system-recovery.txt" 2>&1 || true
-      adb shell dumpsys window windows > "$R/windows-after-system-recovery.txt" 2>&1 || true
-      adb logcat -b all -d -v threadtime > "$R/logcat-after-system-recovery.txt" 2>&1 || true
       adb shell screencap -p /sdcard/qc-screen-recovered.png >/dev/null 2>&1 || true
       adb pull /sdcard/qc-screen-recovered.png "$R/screenshot-after-system-recovery.png" >/dev/null 2>&1 || true
-      if grep -Fq 'ResumedActivity' "$R/activities-after-system-recovery.txt" && grep -Fq 'com.mintatolong.app' "$R/activities-after-system-recovery.txt"; then
-        echo "System UI kembali memberi kesempatan aplikasi Minta Tolong tetap berada di depan setelah tindakan Wait." | tee "$R/system-anr-recovery.txt"
-      else
-        echo "System UI belum pulih dengan jelas; bukti tambahan disimpan dan hasil perlu pemeriksaan manual." | tee "$R/system-anr-recovery.txt"
-      fi
+    else
+      echo "Tombol Wait tidak ditemukan di pohon UI; tidak ada tombol yang ditekan." | tee "$R/system-anr-recovery.txt"
+    fi
+
+    if grep -Eiq 'ANR in com\\.mintatolong\\.app|Process com\\.mintatolong\\.app.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" 2>/dev/null; then
+      echo "GAGAL QC: setelah pemulihan sistem ditemukan bukti ANR pada aplikasi Minta Tolong." | tee "$R/QC-RESULT.txt"
+      exit 1
+    fi
+    if grep -Eiq 'Process system isn.t responding|system isn.t responding|System UI isn.t responding' "$R/window.xml"; then
+      echo "GAGAL QC INFRASTRUKTUR: dialog ANR sistem masih menutupi aplikasi setelah pemulihan; hasil aplikasi belum dapat dinilai." | tee "$R/QC-RESULT.txt"
+      exit 1
     fi
   else
-    echo "PERINGATAN QC: sinyal ANR terdeteksi tetapi pemilik proses belum dapat dipastikan. Bukti lengkap disimpan." | tee "$R/anr-owner-unknown.txt"
+    echo "GAGAL QC: sinyal ANR terdeteksi tetapi pemilik proses belum dapat dipastikan. Bukti lengkap disimpan." | tee "$R/anr-owner-unknown.txt"
+    exit 1
   fi
 fi
 adb shell pidof "$PACKAGE" | tee "$R/app-pid.txt"
