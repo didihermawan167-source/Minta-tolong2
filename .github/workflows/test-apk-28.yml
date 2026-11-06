@@ -27,13 +27,15 @@ permissions:
 # do not start competing Android emulators at the same time.
 concurrency:
   group: minta-tolong-android-qc
-  cancel-in-progress: false
+  # A newer QC run supersedes a stale emulator run instead of waiting forever.
+  cancel-in-progress: true
 
 jobs:
   test-apk:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Bound the whole job; emulator boot itself has a 15-minute timeout.
+    timeout-minutes: 30
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
