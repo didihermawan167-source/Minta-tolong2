@@ -54,7 +54,7 @@ assert_text() {
 }
 wait_text() {
   n=0
-  while [ "$n" -lt 10 ]; do
+  while [ "$n" -lt 25 ]; do
     if dump_ui && grep -Fqi "$1" "$R/auth-ui/current.xml"; then return 0; fi
     n=$((n+1)); sleep 1
   done
@@ -72,6 +72,8 @@ type_field() {
 }
 
 echo "Memulai uji interaksi UI autentikasi tanpa mengirim permintaan ke Supabase."
+# Wait for the initial async session check and redirect in app/index.tsx.
+wait_text "Masuk"
 assert_text "Masuk"
 assert_text "Daftar"
 adb shell screencap -p /sdcard/auth-login.png >/dev/null
