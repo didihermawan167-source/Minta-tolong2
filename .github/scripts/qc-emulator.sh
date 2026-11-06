@@ -85,10 +85,45 @@ adb shell dumpsys window windows > "$R/windows.txt" 2>&1 || true
 if adb shell uiautomator dump /sdcard/qc-window.xml >/dev/null 2>&1; then
   adb pull /sdcard/qc-window.xml "$R/window.xml" >/dev/null 2>&1 || true
 fi
-# Any Android ANR dialog obscuring the app is a UI failure, including System UI.
-if [ -s "$R/window.xml" ] && grep -Eiq '(System UI|Process system|Minta Tolong|com\\.mintatolong\\.app).*?(isn.t responding|not responding)|text="(Close app|Wait)"' "$R/window.xml"; then
-  adb logcat -d -t 12000 > "$R/logcat.txt" || true
-  echo "GAGAL UI: dialog ANR menutupi aplikasi (aplikasi atau komponen sistem). Tidak boleh dihitung lulus." | tee "$R/QC-RESULT.txt"
+# Capture diagnostics before classifying any ANR dialog. A system-service ANR
+# must not be misreported as an ANR in the Minta Tolong app.
+adb logcat -d -t 12000 > "$R/logcat.txt" 2>&1 || true
+if grep -F "ANR in $PACKAGE" "$R/logcat.txt" > "$R/app-anr.txt"; then
+  echo "GAGAL APLIKASI: Android mencatat ANR pada $PACKAGE." | tee "$R/QC-RESULT.txt"
+  exit 1
+fi
+
+if [ -s "$R/window.xml" ] && grep -Fq 'text="Process system isn' "$R/window.xml"; then
+  grep -E 'ANR in |Reason:|Input dispatching timed out' "$R/logcat.txt" > "$R/emulator-anr.txt" || true
+  if [ ! -s "$R/emulator-anr.txt" ]; then
+    echo "GAGAL QC: dialog Process system tidak merespons muncul, tetapi pemilik ANR tidak dapat dipastikan." | tee "$R/QC-RESULT.txt"
+    exit 1
+  fi
+  WAIT_BOUNDS="$(sed -n 's/.*resource-id="android:id/aerr_wait".*bounds="\\[\\([0-9]*\\),\\([0-9]*\\)\\]\\[\\([0-9]*\\),\\([0-9]*\\)\\]".*/\\1 \\2 \\3 \\4/p' "$R/window.xml" | head -n 1)"
+  if [ -z "$WAIT_BOUNDS" ]; then
+    echo "GAGAL QC: ANR sistem terdeteksi tetapi tombol Wait tidak ditemukan." | tee "$R/QC-RESULT.txt"
+    exit 1
+  fi
+  set -- $WAIT_BOUNDS
+  WAIT_X=$((($1 + $3) / 2))
+  WAIT_Y=$((($2 + $4) / 2))
+  adb shell input tap "$WAIT_X" "$WAIT_Y"
+  sleep 10
+  adb shell uiautomator dump /sdcard/qc-window-after-system-anr.xml >/dev/null 2>&1 || true
+  adb pull /sdcard/qc-window-after-system-anr.xml "$R/window-after-system-anr.xml" >/dev/null 2>&1 || true
+  adb shell screencap -p /sdcard/qc-screen-after-system-anr.png >/dev/null 2>&1 || true
+  adb pull /sdcard/qc-screen-after-system-anr.png "$R/screenshot-after-system-anr.png" >/dev/null 2>&1 || true
+  if grep -Fq 'text="Process system isn' "$R/window-after-system-anr.xml" 2>/dev/null; then
+    echo "GAGAL INFRASTRUKTUR EMULATOR: ANR proses sistem tetap muncul setelah memilih Wait. Layar aplikasi belum dapat dinilai dengan andal." | tee "$R/QC-RESULT.txt"
+    exit 1
+  fi
+fi
+
+# An app-owned ANR or fatal exception is a failure; a system-service ANR
+# is recorded separately and does not by itself prove the app is hung.
+adb logcat -d -t 12000 > "$R/logcat.txt" 2>&1 || true
+if grep -E 'FATAL EXCEPTION|ReactNativeJS: \\[.*(Error|Exception)|JavascriptException:' "$R/logcat.txt" > "$R/fatal-errors.txt"; then
+  echo "GAGAL: ditemukan error fatal JavaScript/Android saat aplikasi dibuka." | tee "$R/QC-RESULT.txt"
   exit 1
 fi
 # Require the expected login controls to be present in the accessibility tree.
