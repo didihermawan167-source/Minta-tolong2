@@ -30,6 +30,14 @@ if [ "$SERVICES_READY" != "1" ]; then
 fi
 echo "Layanan package dan activity siap."
 
+# Reduce Android emulator background-service pressure before launching the app.
+# Bluetooth is not needed by Minta Tolong's current QC path; disabling it is
+# an environment-only mitigation, not an application-code change.
+adb shell svc bluetooth disable > "$R/bluetooth-disable.txt" 2>&1 || true
+adb shell settings put global bluetooth_on 0 >> "$R/bluetooth-disable.txt" 2>&1 || true
+sleep 5
+adb shell dumpsys bluetooth_manager > "$R/bluetooth-manager-before-launch.txt" 2>&1 || true
+
 AAPT="$(find "$SDK/build-tools" -type f -name aapt -print -quit 2>/dev/null || true)"
 if [ -n "$AAPT" ]; then
   "$AAPT" dump badging "$APK" > "$R/apk-info.txt"
