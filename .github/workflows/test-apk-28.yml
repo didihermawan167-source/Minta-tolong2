@@ -78,9 +78,12 @@ jobs:
           target: default
           arch: x86_64
           profile: pixel_2
+          ram-size: 3072M
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data -camera-back none
           disable-animations: true
+          disable-spellchecker: true
+          pre-emulator-launch-script: sh "$GITHUB_WORKSPACE/.github/scripts/prepare-emulator.sh"
           script: |
             sh "$GITHUB_WORKSPACE/.github/scripts/qc-emulator.sh"
       - name: Simpan laporan QC
