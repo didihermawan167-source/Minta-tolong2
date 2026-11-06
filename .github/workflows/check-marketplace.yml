@@ -1,0 +1,29 @@
+name: Pemeriksaan kode marketplace
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "lib/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+      - name: Siapkan Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Pasang dependensi
+        run: npm ci
+      - name: Periksa TypeScript
+        run: npx tsc --noEmit
