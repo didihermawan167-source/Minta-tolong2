@@ -106,8 +106,9 @@ tap_ok
 
 # Return to login to confirm the reverse navigation works.
 tap_label "Sudah punya akun? Masuk" contains
-wait_text "Email dan password wajib diisi."
+wait_text "Minta Tolong"
 assert_text "Masuk"
+assert_text "Belum punya akun? Daftar"
 cp "$R/auth-ui/current.xml" "$R/auth-ui/login-return.xml"
 
 cat > "$R/auth-ui/RESULT.txt" <<'EOF'
