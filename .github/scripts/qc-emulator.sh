@@ -147,6 +147,9 @@ PY
       adb shell input tap "$WAIT_X" "$WAIT_Y" || true
       echo "Tindakan pemulihan: tombol Wait pada koordinat $WAIT_X,$WAIT_Y." | tee "$R/system-anr-recovery.txt"
       sleep 30
+      if adb shell uiautomator dump /sdcard/qc-window-after-recovery.xml >/dev/null 2>&1; then
+        adb pull /sdcard/qc-window-after-recovery.xml "$R/window-after-system-recovery.xml" >/dev/null 2>&1 || true
+      fi
       capture_diagnostics
       adb shell dumpsys activity activities > "$R/activities-after-system-recovery.txt" 2>&1 || true
       adb shell screencap -p /sdcard/qc-screen-recovered.png >/dev/null 2>&1 || true
@@ -159,7 +162,7 @@ PY
       echo "GAGAL QC: setelah pemulihan sistem ditemukan bukti ANR pada aplikasi Minta Tolong." | tee "$R/QC-RESULT.txt"
       exit 1
     fi
-    if grep -Eiq 'Process system isn.t responding|system isn.t responding|System UI isn.t responding' "$R/window.xml"; then
+    if grep -Eiq 'Process system isn.t responding|system isn.t responding|System UI isn.t responding' "$R/window-after-system-recovery.xml" 2>/dev/null; then
       echo "GAGAL QC INFRASTRUKTUR: dialog ANR sistem masih menutupi aplikasi setelah pemulihan; hasil aplikasi belum dapat dinilai." | tee "$R/QC-RESULT.txt"
       exit 1
     fi
