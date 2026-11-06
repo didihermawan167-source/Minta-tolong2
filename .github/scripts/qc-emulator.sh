@@ -99,7 +99,7 @@ if grep -Eiq 'not responding|isn.t responding|ANR in ' "$R/window.xml" "$R/logca
   grep -Ein -C 3 'not responding|isn.t responding|ANR in |Reason:|Subject:' "$R/window.xml" "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/dropbox-system-anr.txt" > "$R/anr-evidence.txt" 2>/dev/null || true
 fi
 if [ "$ANR_FOUND" = "1" ]; then
-  if grep -Eiq 'ANR in com\\.mintatolong\\.app|Process com\\.mintatolong\\.app.*(not responding|isn.t responding)|text="Minta Tolong.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/window.xml" 2>/dev/null; then
+  if grep -Eiq 'ANR in com\.mintatolong\.app|Process com\.mintatolong\.app.*(not responding|isn.t responding)|text="Minta Tolong.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/window.xml" 2>/dev/null; then
     echo "GAGAL QC: bukti ANR mengarah ke proses aplikasi Minta Tolong. Diagnostik lengkap disimpan." | tee "$R/QC-RESULT.txt"
     exit 1
   fi
@@ -112,7 +112,7 @@ if [ "$ANR_FOUND" = "1" ]; then
     SYSTEM_DIALOG=1
   fi
   SYSTEM_ANR=0
-  if grep -Eiq 'ANR in (system|com\\.android\\.bluetooth)|Process (system|com\\.android\\.bluetooth).*not responding|system_server.*ANR' "$R/logcat-all.txt" "$R/dropbox-system-anr.txt" 2>/dev/null; then
+  if grep -Eiq 'ANR in (system|com\.android\.bluetooth)|Process (system|com\.android\.bluetooth).*not responding|system_server.*ANR' "$R/logcat-all.txt" "$R/dropbox-system-anr.txt" 2>/dev/null; then
     SYSTEM_ANR=1
   fi
 
@@ -132,7 +132,7 @@ try:
     for node in root.iter():
         label = " ".join((node.attrib.get(k, "") for k in ("text", "content-desc"))).strip().lower()
         bounds = node.attrib.get("bounds", "")
-        if label == "wait" and re.fullmatch(r"\\[\\d+,\\d+\\]\\[\\d+,\\d+\\]", bounds):
+        if label == "wait" and re.fullmatch(r"\[\d+,\d+\]\[\d+,\d+\]", bounds):
             print(bounds)
             break
 except Exception:
@@ -140,8 +140,8 @@ except Exception:
 PY
 )"
     if [ -n "$WAIT_BOUNDS" ]; then
-      WAIT_X="$(printf '%s' "$WAIT_BOUNDS" | sed -E 's/\\[([0-9]+),([0-9]+)\\]\\[([0-9]+),([0-9]+)\\]/\\1 \\3/')"
-      WAIT_Y="$(printf '%s' "$WAIT_BOUNDS" | sed -E 's/\\[([0-9]+),([0-9]+)\\]\\[([0-9]+),([0-9]+)\\]/\\2 \\4/')"
+      WAIT_X="$(printf '%s' "$WAIT_BOUNDS" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\1 \3/')"
+      WAIT_Y="$(printf '%s' "$WAIT_BOUNDS" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\2 \4/')"
       WAIT_X="$(printf '%s' "$WAIT_X" | awk '{print int(($1+$2)/2)}')"
       WAIT_Y="$(printf '%s' "$WAIT_Y" | awk '{print int(($1+$2)/2)}')"
       adb shell input tap "$WAIT_X" "$WAIT_Y" || true
@@ -155,7 +155,7 @@ PY
       echo "Tombol Wait tidak ditemukan di pohon UI; tidak ada tombol yang ditekan." | tee "$R/system-anr-recovery.txt"
     fi
 
-    if grep -Eiq 'ANR in com\\.mintatolong\\.app|Process com\\.mintatolong\\.app.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" 2>/dev/null; then
+    if grep -Eiq 'ANR in com\.mintatolong\.app|Process com\.mintatolong\.app.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" 2>/dev/null; then
       echo "GAGAL QC: setelah pemulihan sistem ditemukan bukti ANR pada aplikasi Minta Tolong." | tee "$R/QC-RESULT.txt"
       exit 1
     fi
