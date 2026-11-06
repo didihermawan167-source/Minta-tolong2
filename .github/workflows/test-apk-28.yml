@@ -74,7 +74,7 @@ jobs:
       - name: Tim QC menguji instalasi dan pembukaan aplikasi
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 35
           target: default
           arch: x86_64
           profile: pixel_2
