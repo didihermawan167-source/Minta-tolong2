@@ -42,7 +42,6 @@ try {
   const { error } = await supabase.from("help_requests").insert({
     request_type: title.trim(),
     description: description.trim(),
-    radius_m: 200,
     latitude: position.coords.latitude,
     longitude: position.coords.longitude,
     status: "Menunggu",
