@@ -99,7 +99,7 @@ if [ -s "$R/window.xml" ] && grep -Fq 'text="Process system isn' "$R/window.xml"
     echo "GAGAL QC: dialog Process system tidak merespons muncul, tetapi pemilik ANR tidak dapat dipastikan." | tee "$R/QC-RESULT.txt"
     exit 1
   fi
-  WAIT_BOUNDS="$(grep -o 'resource-id="android:id/aerr_wait"[^>]*' "$R/window.xml" | grep -o 'bounds="[^"]*"' | tr -cd '0-9 ')"
+  WAIT_BOUNDS="$(grep -o 'resource-id="android:id/aerr_wait"[^>]*' "$R/window.xml" | grep -o 'bounds="\\[[0-9]*,[0-9]*\\]\\[[0-9]*,[0-9]*\\]"' | grep -o '[0-9][0-9]*' | paste -sd ' ' -)"
   if [ -z "$WAIT_BOUNDS" ]; then
     echo "GAGAL QC: ANR sistem terdeteksi tetapi tombol Wait tidak ditemukan." | tee "$R/QC-RESULT.txt"
     exit 1
