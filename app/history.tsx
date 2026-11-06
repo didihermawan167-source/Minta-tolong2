@@ -1,4 +1,3 @@
-app/history.tsx
 import { useCallback, useState } from "react";
 import {
   View,
