@@ -12,7 +12,8 @@ import * as Location from "expo-location";
 import { supabase } from "../lib/supabase";
 
 export default function Request() {
-const [title, setTitle] = useState("");
+const params = useLocalSearchParams<{ category?: string }>();
+const [title, setTitle] = useState(() => params.category ?? "");
 const [description, setDescription] = useState("");
 const [loading, setLoading] = useState(false);
 
@@ -25,25 +26,28 @@ return;
 setLoading(true);
 
 try {
-  const permission = await Location.requestForegroundPermissionsAsync();
+  let latitude: number | null = null;
+  let longitude: number | null = null;
 
-  if (permission.status !== "granted") {
-    Alert.alert(
-      "Izin lokasi diperlukan",
-      "Izinkan Minta Tolong mengakses lokasi HP agar permintaan bisa dikirim."
-    );
-    return;
+  // Lokasi hanya pelengkap; pengguna tetap dapat mengirim permintaan tanpa izin lokasi.
+  try {
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (permission.status === "granted") {
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      latitude = position.coords.latitude;
+      longitude = position.coords.longitude;
+    }
+  } catch {
+    // Jangan gagalkan permintaan hanya karena lokasi tidak tersedia.
   }
-
-  const position = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
 
   const { error } = await supabase.from("help_requests").insert({
     request_type: title.trim(),
     description: description.trim(),
-    latitude: position.coords.latitude,
-    longitude: position.coords.longitude,
+    latitude,
+    longitude,
     status: "Menunggu",
   });
 
@@ -96,7 +100,7 @@ Jelaskan bantuan yang sedang kamu butuhkan.
   />
 
   <Text style={s.note}>
-    Lokasi HP akan disertakan saat permintaan dikirim ke server.
+    Lokasi HP bersifat opsional. Permintaan tetap dapat dikirim tanpa izin lokasi.
   </Text>
 
   <Pressable
