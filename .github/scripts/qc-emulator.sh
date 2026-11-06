@@ -111,6 +111,7 @@ if [ -s "$R/window.xml" ] && grep -Fq 'text="Process system isn' "$R/window.xml"
   sleep 10
   adb shell uiautomator dump /sdcard/qc-window-after-system-anr.xml >/dev/null 2>&1 || true
   adb pull /sdcard/qc-window-after-system-anr.xml "$R/window-after-system-anr.xml" >/dev/null 2>&1 || true
+  cp "$R/window-after-system-anr.xml" "$R/window.xml" 2>/dev/null || true
   adb shell screencap -p /sdcard/qc-screen-after-system-anr.png >/dev/null 2>&1 || true
   adb pull /sdcard/qc-screen-after-system-anr.png "$R/screenshot-after-system-anr.png" >/dev/null 2>&1 || true
   if grep -Fq 'text="Process system isn' "$R/window-after-system-anr.xml" 2>/dev/null; then
@@ -122,7 +123,7 @@ fi
 # An app-owned ANR or fatal exception is a failure; a system-service ANR
 # is recorded separately and does not by itself prove the app is hung.
 adb logcat -d -t 12000 > "$R/logcat.txt" 2>&1 || true
-if grep -E 'FATAL EXCEPTION|ReactNativeJS: \\[.*(Error|Exception)|JavascriptException:' "$R/logcat.txt" > "$R/fatal-errors.txt"; then
+if grep -E 'FATAL EXCEPTION|ReactNativeJS: \[.*(Error|Exception)|JavascriptException:' "$R/logcat.txt" > "$R/fatal-errors.txt"; then
   echo "GAGAL: ditemukan error fatal JavaScript/Android saat aplikasi dibuka." | tee "$R/QC-RESULT.txt"
   exit 1
 fi
@@ -152,4 +153,8 @@ fi
 adb shell screencap -p /sdcard/qc-screen.png
 adb pull /sdcard/qc-screen.png "$R/screenshot.png"
 test -s "$R/screenshot.png"
-echo "LULUS: APK terpasang, aktivitas aplikasi tampil di depan, proses tetap hidup, dan tidak ditemukan crash fatal." | tee "$R/QC-RESULT.txt"
+if [ -s "$R/emulator-anr.txt" ]; then
+  echo "LULUS APLIKASI DENGAN PERINGATAN INFRASTRUKTUR: layar Masuk/Daftar tampil, proses aplikasi hidup, dan tidak ditemukan ANR aplikasi. Emulator sempat mencatat ANR layanan sistem; detail ada di emulator-anr.txt." | tee "$R/QC-RESULT.txt"
+else
+  echo "LULUS: APK terpasang, aktivitas aplikasi tampil di depan, proses tetap hidup, dan tidak ditemukan crash fatal." | tee "$R/QC-RESULT.txt"
+fi
