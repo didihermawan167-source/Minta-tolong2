@@ -30,6 +30,16 @@ if [ "$SERVICES_READY" != "1" ]; then
 fi
 echo "Layanan package dan activity siap."
 
+# This AOSP emulator has no real Bluetooth hardware. The previous QC trace
+# recorded an ANR in com.android.bluetooth while Minta Tolong stayed alive.
+# Turn the virtual adapter off before installing/launching the app so this
+# unrelated platform service does not compete with the app-under-test.
+echo "Menonaktifkan adapter Bluetooth virtual yang tidak didukung emulator..."
+adb shell settings put global bluetooth_on 0 >/dev/null 2>&1 || true
+adb shell cmd bluetooth_manager disable >/dev/null 2>&1 || true
+adb shell am force-stop com.android.bluetooth >/dev/null 2>&1 || true
+sleep 10
+
 AAPT="$(find "$SDK/build-tools" -type f -name aapt -print -quit 2>/dev/null || true)"
 if [ -n "$AAPT" ]; then
   "$AAPT" dump badging "$APK" > "$R/apk-info.txt"
