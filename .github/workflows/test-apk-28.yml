@@ -4,6 +4,11 @@ name: Tim QC AI - Uji APK Otomatis
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/test-apk-28.yml'
+      - '.github/scripts/qc-emulator.sh'
   push:
     branches: [main]
     paths:
@@ -26,7 +31,7 @@ concurrency:
 
 jobs:
   test-apk:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
