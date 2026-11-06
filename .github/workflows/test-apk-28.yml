@@ -1,6 +1,6 @@
 name: Tim QC AI - Uji APK Otomatis
 # Use the base Android image; this app does not require Google Play services.
-# A push to this workflow file reruns QC against the latest successful APK build.
+# PR QC intentionally runs the latest successful APK from main against this branch's diagnostic script.
 
 on:
   workflow_dispatch:
