@@ -72,6 +72,7 @@ jobs:
           sha256sum test-results/minta-tolong.apk | tee test-results/sha256.txt
           echo "APK berhasil diunduh dan arsip ZIP valid." | tee test-results/precheck.txt
       - name: Tim QC menguji instalasi dan pembukaan aplikasi
+        id: emulator-qc
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -84,6 +85,49 @@ jobs:
           disable-animations: true
           script: |
             sh "$GITHUB_WORKSPACE/.github/scripts/qc-emulator.sh"
+      - name: Ambil diagnostik jika emulator gagal sebelum skrip QC
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p test-results/runner-diagnostics
+          D=test-results/runner-diagnostics
+          {
+            echo "job_status=${{ job.status }}"
+            echo "emulator_step_outcome=${{ steps.emulator-qc.outcome }}"
+            date -u
+            uname -a
+            echo "--- memory ---"
+            free -h || true
+            echo "--- disk ---"
+            df -h || true
+            echo "--- load ---"
+            cat /proc/loadavg || true
+            echo "--- emulator version ---"
+            emulator -version 2>&1 || true
+            echo "--- acceleration ---"
+            emulator -accel-check 2>&1 || true
+            echo "--- adb version ---"
+            adb version 2>&1 || true
+            echo "--- adb devices ---"
+            adb devices -l 2>&1 || true
+            echo "--- emulator/adb processes ---"
+            ps -eo pid,ppid,stat,%cpu,%mem,etime,cmd | grep -E '[e]mulator|[q]emu|[a]db' || true
+          } > "$D/runner-state.txt" 2>&1
+          if adb get-state >/dev/null 2>&1; then
+            adb shell getprop > "$D/device-properties.txt" 2>&1 || true
+            adb shell getprop sys.boot_completed > "$D/sys-boot-completed.txt" 2>&1 || true
+            adb logcat -b all -d -v threadtime > "$D/logcat-after-emulator-step.txt" 2>&1 || true
+            adb shell dumpsys dropbox --print system_app_anr > "$D/dropbox-system-anr.txt" 2>&1 || true
+            adb shell dumpsys dropbox --print data_app_anr > "$D/dropbox-app-anr.txt" 2>&1 || true
+          fi
+          if [ ! -s test-results/QC-RESULT.txt ]; then
+            printf '%s\\n' "GAGAL QC INFRASTRUKTUR: langkah emulator berakhir dengan outcome ${{ steps.emulator-qc.outcome }} sebelum skrip QC menghasilkan laporan. Periksa runner-diagnostics." > test-results/QC-RESULT.txt
+          fi
+          find "$HOME/.android" "$RUNNER_TEMP" -maxdepth 4 -type f \\( -iname '*emulator*.log' -o -iname '*qemu*.log' -o -iname '*adb*.log' \\) -size -20M -print 2>/dev/null | head -30 > "$D/host-log-index.txt" || true
+          while IFS= read -r file; do
+            [ -f "$file" ] || continue
+            cp "$file" "$D/$(basename "$file")" 2>/dev/null || true
+          done < "$D/host-log-index.txt"
       - name: Simpan laporan QC
         if: always()
         uses: actions/upload-artifact@v4
