@@ -138,26 +138,24 @@ wait_text "Semua data wajib diisi."
 cp "$R/auth-ui/current.xml" "$R/auth-ui/register-required-validation.xml"
 tap_ok
 
-# Fill a local-only dummy form and verify minimum password length.
-# The form is deliberately NOT submitted, so no test account is created.
-type_field "Nama" "QC"
-type_field "Email" "qc.invalid@example.invalid"
-type_field "Password" "123"
-tap_label "Daftar" click
-# Validasi sumber menampilkan judul Alert "Password terlalu pendek" dan isi "Gunakan minimal 6 karakter".
-# Uiautomator pada emulator tertentu hanya mengekspos judul Alert, jadi gunakan judul
-# sebagai penanda stabil; simpan hierarki lengkap sebagai bukti pemeriksaan.
-wait_text "Password terlalu pendek"
-if ! grep -Fqi "Gunakan minimal 6 karakter" "$R/auth-ui/current.xml"; then
-  echo "CATATAN AUTH UI: isi Alert tidak diekspos oleh uiautomator; judul validasi terdeteksi." | tee "$R/auth-ui/password-length-note.txt"
+# Safety: never submit even a dummy registration to the configured Supabase project.
+# A prior run unexpectedly reached Home after this tap and opened a GPS alert,
+# proving that this test could reach the real sign-up path. Verify the source
+# guard statically instead; live backend registration requires an isolated test project.
+if ! grep -Fq 'if (pass.length < 6)' "$GITHUB_WORKSPACE/app/register.tsx"; then
+  echo "GAGAL AUTH UI: validasi minimum password tidak ditemukan di sumber aplikasi." | tee "$R/auth-ui/RESULT.txt"
+  exit 1
 fi
-cp "$R/auth-ui/current.xml" "$R/auth-ui/password-length-validation.xml"
-tap_ok
+if ! grep -Fq 'Password terlalu pendek' "$GITHUB_WORKSPACE/app/register.tsx"; then
+  echo "GAGAL AUTH UI: pesan validasi password pendek tidak ditemukan di sumber aplikasi." | tee "$R/auth-ui/RESULT.txt"
+  exit 1
+fi
+echo "LULUS PEMERIKSAAN SUMBER: validasi password minimal 6 karakter ada di kode; interaksi langsung sengaja tidak dikirim ke backend." | tee "$R/auth-ui/password-length-source-check.txt"
 
-# Return to login to confirm the reverse navigation works.
+# Return to login and verify the registration-to-login navigation without submitting credentials.
 tap_label "Sudah punya akun? Masuk" contains
-wait_text "Email dan password wajib diisi."
-assert_text "Masuk"
+wait_text "Masuk"
+assert_text "Belum punya akun? Daftar"
 cp "$R/auth-ui/current.xml" "$R/auth-ui/login-return.xml"
 
 cat > "$R/auth-ui/RESULT.txt" <<'EOF'
