@@ -104,7 +104,7 @@ if [ "$ANR_FOUND" = "1" ]; then
   # Classify from explicit ANR process evidence or the Android dialog title.
   # Never dismiss an ANR with a fixed screen coordinate: that can tap the
   # wrong control on another emulator density or Android version.
-  if grep -Eiq 'ANR in com\.mintatolong\\.app|Process com\.mintatolong\\.app.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/window.xml" 2>/dev/null; then
+  if grep -Eiq 'ANR in com\.mintatolong\.app|Process com\.mintatolong\.app.*(not responding|isn.t responding)' "$R/logcat-all.txt" "$R/dropbox-app-anr.txt" "$R/window.xml" 2>/dev/null; then
     echo "GAGAL QC: proses aplikasi Minta Tolong teridentifikasi mengalami ANR. Diagnostik lengkap disimpan." | tee "$R/QC-RESULT.txt"
     exit 1
   elif grep -Eiq 'Process system.*(not responding|isn.t responding)|ANR in system|system_server.*ANR' "$R/window.xml" "$R/logcat-all.txt" "$R/dropbox-system-anr.txt" 2>/dev/null; then
