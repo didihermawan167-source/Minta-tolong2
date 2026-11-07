@@ -5,10 +5,11 @@ name: Tim QC AI - Uji APK Otomatis
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, qc/auth-ui-interaction-isolated]
     paths:
       - '.github/workflows/test-apk-28.yml'
       - '.github/scripts/qc-emulator.sh'
+      - '.github/scripts/qc-auth-ui.sh'
   workflow_run:
     workflows: ["Build APK Minta Tolong"]
     types: [completed]
@@ -78,6 +79,7 @@ jobs:
           disable-animations: true
           script: |
             sh "$GITHUB_WORKSPACE/.github/scripts/qc-emulator.sh"
+            sh "$GITHUB_WORKSPACE/.github/scripts/qc-auth-ui.sh"
       - name: Simpan laporan QC
         if: always()
         uses: actions/upload-artifact@v4
