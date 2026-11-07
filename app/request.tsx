@@ -25,29 +25,26 @@ export default function Request() {
 
     setLoading(true);
     try {
-      let latitude: number | null = null;
-      let longitude: number | null = null;
-
-      // Lokasi bersifat opsional agar permintaan jasa tidak terhenti karena izin GPS.
-      try {
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.status === "granted") {
-          const position = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          latitude = position.coords.latitude;
-          longitude = position.coords.longitude;
-        }
-      } catch {
-        // Permintaan tetap dapat dikirim tanpa koordinat.
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert(
+          "Izin lokasi diperlukan",
+          "Izinkan Minta Tolong mengakses lokasi HP agar permintaan bisa dikirim."
+        );
+        return;
       }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
 
       const { error } = await supabase.from("help_requests").insert({
         request_type: title.trim(),
         description: description.trim(),
-        latitude,
-        longitude,
-        status: "Menunggu bantuan",
+        radius_m: 200,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        status: "Menunggu",
       });
 
       if (error) {
@@ -55,14 +52,16 @@ export default function Request() {
         return;
       }
 
-      Alert.alert("Berhasil", "Permintaan bantuan sudah dikirim ke server.", [
-        { text: "OK", onPress: () => router.replace("/home") },
-      ]);
-    } catch (error) {
       Alert.alert(
-        "Gagal",
-        error instanceof Error ? error.message : "Periksa koneksi internet lalu coba lagi."
+        "Berhasil",
+        "Permintaan bantuan sudah dikirim ke server.",
+        [{ text: "OK", onPress: () => router.replace("/home") }]
       );
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Periksa koneksi internet dan pengaturan lokasi HP.";
+      Alert.alert("Gagal", message);
     } finally {
       setLoading(false);
     }
@@ -71,12 +70,12 @@ export default function Request() {
   return (
     <View style={s.container}>
       <Text style={s.title}>🆘 Minta Tolong</Text>
-      <Text style={s.subtitle}>Jelaskan bantuan atau jasa yang sedang kamu butuhkan.</Text>
+      <Text style={s.subtitle}>Jelaskan bantuan yang sedang kamu butuhkan.</Text>
 
       <Text style={s.label}>Jenis bantuan</Text>
       <TextInput
         style={s.input}
-        placeholder="Contoh: perbaikan motor"
+        placeholder="Contoh: motor mogok"
         value={title}
         onChangeText={setTitle}
       />
@@ -91,10 +90,18 @@ export default function Request() {
         textAlignVertical="top"
       />
 
-      <Text style={s.note}>Lokasi HP bersifat opsional. Permintaan tetap dapat dikirim tanpa izin lokasi.</Text>
+      <Text style={s.note}>
+        Lokasi HP akan disertakan saat permintaan dikirim ke server.
+      </Text>
 
-      <Pressable style={[s.button, loading && s.disabled]} onPress={sendRequest} disabled={loading}>
-        <Text style={s.buttonText}>{loading ? "Mengirim..." : "KIRIM PERMINTAAN"}</Text>
+      <Pressable
+        style={[s.button, loading && s.disabled]}
+        onPress={sendRequest}
+        disabled={loading}
+      >
+        <Text style={s.buttonText}>
+          {loading ? "Mengirim..." : "KIRIM PERMINTAAN"}
+        </Text>
       </Pressable>
 
       <Pressable style={s.back} onPress={() => router.back()}>
@@ -109,10 +116,23 @@ const s = StyleSheet.create({
   title: { fontSize: 26, fontWeight: "800", marginTop: 25 },
   subtitle: { color: "#666", marginTop: 8, marginBottom: 25 },
   label: { fontWeight: "700", marginBottom: 8, marginTop: 12 },
-  input: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#ddd", borderRadius: 12, padding: 14, fontSize: 16 },
+  input: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+  },
   multiline: { height: 130 },
   note: { color: "#777", marginTop: 15, lineHeight: 20 },
-  button: { backgroundColor: "#e53935", padding: 17, borderRadius: 12, alignItems: "center", marginTop: 22 },
+  button: {
+    backgroundColor: "#e53935",
+    padding: 17,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 22,
+  },
   disabled: { opacity: 0.6 },
   buttonText: { color: "#fff", fontWeight: "800" },
   back: { alignItems: "center", padding: 18 },
