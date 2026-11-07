@@ -1,18 +1,19 @@
 name: Tim QC AI - Uji APK Otomatis
 # Use the base Android image; this app does not require Google Play services.
 # A push to this workflow file reruns QC against the latest successful APK build.
+# QC refresh: verify the PR branch APK artifact independently of the main-branch run.
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, fix/auth-bootstrap-timeout]
     paths:
       - '.github/workflows/test-apk-28.yml'
       - '.github/scripts/qc-emulator.sh'
   workflow_run:
     workflows: ["Build APK Minta Tolong"]
     types: [completed]
-    branches: [main]
+    branches: [main, fix/auth-bootstrap-timeout]
 
 permissions:
   actions: read
@@ -42,7 +43,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             RUN_ID="${{ github.event.workflow_run.id }}"
           else
-            RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/build-apk.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id')"
+            RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/build-apk.yml/runs?branch=${GITHUB_REF_NAME}&status=success&per_page=1" --jq '.workflow_runs[0].id')"
           fi
           test -n "$RUN_ID"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
@@ -50,7 +51,7 @@ jobs:
       - name: Unduh APK dari proses build yang tepat
         uses: actions/download-artifact@v4
         with:
-          name: minta-tolong-apk
+          name: minta-tolong-apk-update
           path: test-results/input
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
@@ -74,7 +75,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           emulator-boot-timeout: 900
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data -camera-back none -memory 3072 -cores 2
           disable-animations: true
           script: |
             sh "$GITHUB_WORKSPACE/.github/scripts/qc-emulator.sh"
@@ -84,6 +85,32 @@ jobs:
         with:
           name: laporan-qc-apk
           path: test-results/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Simpan diagnostik teks terpisah
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: laporan-qc-diagnostik-teks
+          path: |
+            test-results/QC-RESULT.txt
+            test-results/precheck.txt
+            test-results/package.txt
+            test-results/launcher-activity.txt
+            test-results/install.txt
+            test-results/launch.txt
+            test-results/window.xml
+            test-results/activities.txt
+            test-results/windows.txt
+            test-results/activity-processes.txt
+            test-results/app-pid.txt
+            test-results/cpuinfo.txt
+            test-results/meminfo.txt
+            test-results/dropbox-app-anr.txt
+            test-results/dropbox-system-anr.txt
+            test-results/logcat-all.txt
+            test-results/anr-evidence.txt
+            test-results/fatal-errors.txt
           if-no-files-found: warn
           retention-days: 14
       - name: Ringkasan laporan
