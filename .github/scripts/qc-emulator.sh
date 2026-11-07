@@ -38,6 +38,18 @@ echo "Menonaktifkan adapter Bluetooth virtual yang tidak didukung emulator..."
 adb shell settings put global bluetooth_on 0 >/dev/null 2>&1 || true
 adb shell cmd bluetooth_manager disable >/dev/null 2>&1 || true
 adb shell am force-stop com.android.bluetooth >/dev/null 2>&1 || true
+# The previous run showed the Bluetooth system package repeatedly restarting
+# and dying while system_server was under heavy binder contention. This AOSP
+# QC image has no Bluetooth hardware and the app does not need Bluetooth, so
+# disable that package for this disposable emulator only. Never run this on a
+# user's device or production build.
+if adb shell pm disable-user --user 0 com.android.bluetooth > "$R/bluetooth-disable.txt" 2>&1; then
+  echo "Bluetooth system package disabled for this emulator-only QC run."
+else
+  echo "WARNING: could not disable Bluetooth package; retaining adapter-off safeguards."
+fi
+adb shell pm list packages -d > "$R/disabled-packages.txt" 2>&1 || true
+adb shell ps -A > "$R/processes-after-bluetooth-disable.txt" 2>&1 || true
 sleep 10
 
 AAPT="$(find "$SDK/build-tools" -type f -name aapt -print -quit 2>/dev/null || true)"
