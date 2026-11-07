@@ -2,9 +2,21 @@ name: Build APK Minta Tolong
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'assets/**'
+      - 'components/**'
+      - 'app.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'eas.json'
+      - 'tsconfig.json'
+      - '.github/workflows/build-apk.yml'
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'app/**'
       - 'lib/**'
@@ -17,10 +29,13 @@ on:
       - 'tsconfig.json'
       - '.github/workflows/build-apk.yml'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 45
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
@@ -29,66 +44,57 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      - name: Pasang dan selaraskan dependensi
+      - name: Siapkan Java untuk Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Pasang dependensi terkunci
+        run: npm ci
+
+      - name: Periksa kompatibilitas Expo
+        run: npx expo install --check
+
+      - name: Buat proyek Android native
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Bangun APK debug lokal tanpa EAS
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Periksa APK
         run: |
-          npm install
-          npx expo install --fix
-          npx expo install --check
-
-      - name: Periksa kode aplikasi
-        run: npx expo export --platform android
-
-      - name: Pasang EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Bangun APK Android
-        run: eas build --platform android --profile preview --non-interactive --wait --json > build-result.json
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Unduh APK
-        run: |
-          URL=$(node -e "const r=require('./build-result.json'); console.log(Array.isArray(r) ? r[0].artifacts.buildUrl : r.artifacts.buildUrl)")
-          curl -fL "$URL" -o minta-tolong.apk
-
-      
-      - name: Periksa keutuhan APK dan tanda tangan
-        run: |
-          set -e
-          test -s minta-tolong.apk
-          unzip -tq minta-tolong.apk
-          unzip -Z1 minta-tolong.apk | grep -qx 'AndroidManifest.xml'
-          unzip -Z1 minta-tolong.apk | grep -Eq '^classes([0-9]+)?\.dex$'
-
-          echo "Ukuran APK:"
-          du -h minta-tolong.apk
-
-          echo "SHA-256:"
-          sha256sum minta-tolong.apk
-
-          echo "Memeriksa tanda tangan APK..."
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -tq "$APK"
+          unzip -Z1 "$APK" | grep -qx 'AndroidManifest.xml'
+          unzip -Z1 "$APK" | grep -Eq '^classes([0-9]+)?\.dex$'
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           APKSIGNER=$(find "$SDK/build-tools" -type f -name apksigner -print -quit)
           test -n "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs minta-tolong.apk
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          sha256sum "$APK" | tee apk-sha256.txt
+          du -h "$APK"
 
-
-      - name: Simpan APK untuk diunduh
+      - name: Simpan APK instalasi
         uses: actions/upload-artifact@v4
         with:
           name: minta-tolong-apk
-          path: minta-tolong.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
 
       - name: Buat ZIP cadangan source proyek
         run: git archive --format=zip --output=minta-tolong-source.zip HEAD
 
-      - name: Simpan ZIP source untuk diunduh
+      - name: Simpan ZIP source
         uses: actions/upload-artifact@v4
         with:
           name: minta-tolong-source
           path: minta-tolong-source.zip
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
