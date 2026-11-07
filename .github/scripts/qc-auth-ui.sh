@@ -52,6 +52,22 @@ assert_text() {
     exit 1
   fi
 }
+resolve_runtime_permission() {
+  # Runtime permission prompts may reappear after navigation or an app
+  # activity restart. Handle them wherever they interrupt the UI test.
+  if dump_ui && grep -Eiq 'Allow Minta Tolong to access this device.s location|permission_allow_foreground_only_button' "$R/auth-ui/current.xml"; then
+    if grep -Fqi 'WHILE USING THE APP' "$R/auth-ui/current.xml"; then
+      tap_label "WHILE USING THE APP" click
+    elif grep -Fqi 'ONLY THIS TIME' "$R/auth-ui/current.xml"; then
+      tap_label "ONLY THIS TIME" click
+    elif grep -Fqi 'Allow' "$R/auth-ui/current.xml"; then
+      tap_label "Allow" click
+    fi
+    sleep 2
+    return 0
+  fi
+  return 1
+}
 wait_text() {
   expected="$1"
   n=0
@@ -63,6 +79,7 @@ wait_text() {
       cp "$R/auth-ui/current.xml" "$R/auth-ui/verified-$(printf '%s' "$expected" | tr ' ' '_' | tr -cd '[:alnum:]_').xml"
       return 0
     fi
+    resolve_runtime_permission || true
     n=$((n+1))
     sleep 3
   done
