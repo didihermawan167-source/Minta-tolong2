@@ -9,6 +9,7 @@ on:
     paths:
       - '.github/workflows/test-apk-28.yml'
       - '.github/scripts/qc-emulator.sh'
+      - '.github/scripts/qc-auth-ui.sh'
   push:
     branches: [main]
     paths:
@@ -87,6 +88,7 @@ jobs:
           disable-animations: true
           script: |
             sh "$GITHUB_WORKSPACE/.github/scripts/qc-emulator.sh"
+            sh "$GITHUB_WORKSPACE/.github/scripts/qc-auth-ui.sh"
       - name: Ambil diagnostik jika emulator gagal sebelum skrip QC
         if: always()
         shell: bash
