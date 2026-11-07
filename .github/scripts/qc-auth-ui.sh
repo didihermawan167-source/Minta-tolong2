@@ -22,7 +22,7 @@ for node in root.iter():
     bounds=node.attrib.get("bounds","")
     if not value or not re.fullmatch(r"\[\d+,\d+\]\[\d+,\d+\]",bounds):
         continue
-    ok = (label in value.lower()) if mode == "contains" else (label == value.lower())
+    ok = (label in value.lower()) if mode in ("contains", "field") else (label == value.lower())
     if ok:
         matches.append((node.attrib.get("class",""),node.attrib.get("clickable","false"),bounds,value))
 if not matches:
@@ -68,6 +68,8 @@ type_field() {
   hint="$1"; value="$2"
   tap_label "$hint" field
   adb shell input text "$value"
+  sleep 1
+  adb shell input keyevent 4 >/dev/null 2>&1 || true
   sleep 1
 }
 
