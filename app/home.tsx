@@ -84,9 +84,6 @@ export default function Home() {
         <Pressable style={s.marketItem} onPress={() => router.push("/provider")}>
           <Text style={s.marketEmoji}>🧑‍🔧</Text><Text style={s.marketText}>Daftar Penyedia Jasa</Text><Text style={s.marketArrow}>›</Text>
         </Pressable>
-        <Pressable style={s.marketItem} onPress={() => router.push("/payments")}>
-          <Text style={s.marketEmoji}>💳</Text><Text style={s.marketText}>Pembayaran & Komisi</Text><Text style={s.marketArrow}>›</Text>
-        </Pressable>
       </View>
       <View style={s.footer}><Text style={s.footerText}>🤝 Bersama, saling membantu</Text></View>
     </ScrollView>
