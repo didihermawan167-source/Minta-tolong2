@@ -16,6 +16,7 @@ on:
       - 'eas.json'
       - 'tsconfig.json'
       - '.github/workflows/build-apk.yml'
+      - '.github/workflows/test-apk-28.yml'
   push:
     branches:
       - main
