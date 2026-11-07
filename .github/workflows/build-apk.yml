@@ -62,12 +62,10 @@ jobs:
       - name: Periksa kompatibilitas Expo
         run: npx expo install --check
 
-      - name: Pastikan identitas APK uji terpisah
-        env:
-          APP_VARIANT: preview
+      - name: Pastikan identitas APK tetap kompatibel untuk update
         run: |
-          npx expo config --type public --json > expo-config-preview.json
-          node -e "const c=require('./expo-config-preview.json'); if(c.android?.package !== 'com.mintatolong.app.preview') { console.error('Package preview tidak sesuai:', c.android?.package); process.exit(1); } console.log('Nama:', c.name, '| Package:', c.android.package);"
+          npx expo config --type public --json > expo-config.json
+          node -e "const c=require('./expo-config.json'); if(c.android?.package !== 'com.mintatolong.app') { console.error('Package harus tetap com.mintatolong.app:', c.android?.package); process.exit(1); } console.log('Nama:', c.name, '| Package:', c.android.package);"
 
       - name: Pasang EAS CLI
         run: npm install --global eas-cli
@@ -75,7 +73,6 @@ jobs:
       - name: Bangun APK secara lokal tanpa kuota cloud EAS
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          APP_VARIANT: preview
           EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/eas-local-artifacts
         run: |
           set -euo pipefail
@@ -91,32 +88,32 @@ jobs:
             find "$EAS_LOCAL_BUILD_ARTIFACTS_DIR" -maxdepth 3 -type f -print || true
             exit 1
           fi
-          cp "$APK" minta-tolong-preview.apk
+          cp "$APK" minta-tolong.apk
 
       - name: Periksa APK, package, dan tanda tangan
         run: |
           set -euo pipefail
-          test -s minta-tolong-preview.apk
-          unzip -tq minta-tolong-preview.apk
-          unzip -Z1 minta-tolong-preview.apk | grep -qx 'AndroidManifest.xml'
-          unzip -Z1 minta-tolong-preview.apk | grep -Eq '^classes([0-9]+)?\.dex$'
+          test -s minta-tolong.apk
+          unzip -tq minta-tolong.apk
+          unzip -Z1 minta-tolong.apk | grep -qx 'AndroidManifest.xml'
+          unzip -Z1 minta-tolong.apk | grep -Eq '^classes([0-9]+)?\.dex$'
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           AAPT=$(find "$SDK/build-tools" -type f -name aapt -print -quit)
           APKSIGNER=$(find "$SDK/build-tools" -type f -name apksigner -print -quit)
           test -n "$AAPT"
           test -n "$APKSIGNER"
-          "$AAPT" dump badging minta-tolong-preview.apk | tee apk-info.txt
-          grep -q "^package: name='com.mintatolong.app.preview'" apk-info.txt
-          "$APKSIGNER" verify --verbose --print-certs minta-tolong-preview.apk
-          sha256sum minta-tolong-preview.apk | tee apk-sha256.txt
-          du -h minta-tolong-preview.apk
+          "$AAPT" dump badging minta-tolong.apk | tee apk-info.txt
+          grep -q "^package: name='com.mintatolong.app'" apk-info.txt
+          "$APKSIGNER" verify --verbose --print-certs minta-tolong.apk
+          sha256sum minta-tolong.apk | tee apk-sha256.txt
+          du -h minta-tolong.apk
 
-      - name: Simpan APK uji untuk diunduh
+      - name: Simpan APK update untuk diunduh
         uses: actions/upload-artifact@v4
         with:
-          name: minta-tolong-apk-preview
+          name: minta-tolong-apk-update
           path: |
-            minta-tolong-preview.apk
+            minta-tolong.apk
             apk-info.txt
             apk-sha256.txt
           if-no-files-found: error
