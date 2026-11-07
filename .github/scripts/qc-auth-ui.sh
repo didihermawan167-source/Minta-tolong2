@@ -53,12 +53,24 @@ assert_text() {
   fi
 }
 wait_text() {
+  expected="$1"
   n=0
-  while [ "$n" -lt 10 ]; do
-    if dump_ui && grep -Fqi "$1" "$R/auth-ui/current.xml"; then return 0; fi
-    n=$((n+1)); sleep 1
+  # UIAutomator dumps can take several seconds on the overloaded hosted
+  # emulator. Allow a bounded 45-second window instead of failing on a
+  # transiently slow accessibility tree.
+  while [ "$n" -lt 15 ]; do
+    if dump_ui && grep -Fqi "$expected" "$R/auth-ui/current.xml"; then
+      cp "$R/auth-ui/current.xml" "$R/auth-ui/verified-$(printf '%s' "$expected" | tr ' ' '_' | tr -cd '[:alnum:]_').xml"
+      return 0
+    fi
+    n=$((n+1))
+    sleep 3
   done
-  echo "GAGAL AUTH UI: menunggu teks: $1" | tee "$R/auth-ui/RESULT.txt"
+  adb shell screencap -p /sdcard/auth-ui-failure.png >/dev/null 2>&1 || true
+  adb pull /sdcard/auth-ui-failure.png "$R/auth-ui/failure.png" >/dev/null 2>&1 || true
+  adb logcat -d -v time -t 1200 > "$R/auth-ui/failure-logcat.txt" 2>&1 || true
+  cp "$R/auth-ui/current.xml" "$R/auth-ui/failure.xml" 2>/dev/null || true
+  echo "GAGAL AUTH UI: setelah 45 detik teks tidak ditemukan: $expected" | tee "$R/auth-ui/RESULT.txt"
   exit 1
 }
 tap_ok() {
