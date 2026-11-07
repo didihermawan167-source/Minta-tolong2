@@ -12,7 +12,7 @@ on:
   workflow_run:
     workflows: ["Build APK Minta Tolong"]
     types: [completed]
-    branches: [main]
+    branches: [main, fix/auth-bootstrap-timeout]
 
 permissions:
   actions: read
@@ -42,7 +42,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             RUN_ID="${{ github.event.workflow_run.id }}"
           else
-            RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/build-apk.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id')"
+            RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/build-apk.yml/runs?branch=${GITHUB_REF_NAME}&status=success&per_page=1" --jq '.workflow_runs[0].id')"
           fi
           test -n "$RUN_ID"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
