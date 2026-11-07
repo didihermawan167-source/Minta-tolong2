@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Minta Tolong Uji",
+    "name": "Minta Tolong",
     "slug": "minta-tolong",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "mintatolonguji",
+    "scheme": "mintatolong",
     "userInterfaceStyle": "light",
     "owner": "tivanis-team",
     "plugins": [
@@ -17,7 +17,7 @@
       ]
     ],
     "android": {
-      "package": "com.mintatolong.test",
+      "package": "com.mintatolong.app",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
