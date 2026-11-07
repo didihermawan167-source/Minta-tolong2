@@ -1,9 +1,12 @@
-// Keep the original Android identity so this APK can update the installed app.
+// Preserve the installed Android app identity across PR merge builds.
+// Never inherit the temporary ".test" package from an older base-branch config.
 module.exports = ({ config }) => ({
   ...config,
-  name: config.name,
+  name: "Minta Tolong",
+  slug: "minta-tolong",
+  scheme: "mintatolong",
   android: {
     ...config.android,
-    package: config.android?.package || "com.mintatolong.app",
+    package: "com.mintatolong.app",
   },
 });
