@@ -66,7 +66,7 @@ jobs:
       - name: Pastikan identitas APK tetap kompatibel untuk update
         run: |
           npx expo config --type public --json > expo-config.json
-          node -e "const c=require('./expo-config.json'); if(c.android?.package !== 'com.mintatolong.app') { console.error('Package harus tetap com.mintatolong.app:', c.android?.package); process.exit(1); } console.log('Nama:', c.name, '| Package:', c.android.package);"
+          node -e "const c=require('./expo-config.json'); if(c.android?.package !== 'com.mintatolong.test') { console.error('Package harus tetap com.mintatolong.test:', c.android?.package); process.exit(1); } console.log('Nama:', c.name, '| Package:', c.android.package);"
 
       - name: Pasang EAS CLI
         run: npm install --global eas-cli
@@ -104,7 +104,7 @@ jobs:
           test -n "$AAPT"
           test -n "$APKSIGNER"
           "$AAPT" dump badging minta-tolong.apk | tee apk-info.txt
-          grep -q "^package: name='com.mintatolong.app'" apk-info.txt
+          grep -q "^package: name='com.mintatolong.test'" apk-info.txt
           "$APKSIGNER" verify --verbose --print-certs minta-tolong.apk
           sha256sum minta-tolong.apk | tee apk-sha256.txt
           du -h minta-tolong.apk
