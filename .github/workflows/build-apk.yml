@@ -1,10 +1,10 @@
-name: Build APK Minta Tolong
+name: Build APK Minta Tolong - APK Terpisah
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - apk-terpisah-hp-test
     paths:
       - 'app/**'
       - 'lib/**'
@@ -20,7 +20,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
@@ -39,6 +38,10 @@ jobs:
       - name: Periksa kode aplikasi
         run: npx expo export --platform android
 
+      - name: Pastikan identitas APK terpisah
+        run: |
+          node -e "const c=require('./app.json').expo; if(c.android.package!=='com.mintatolong.apktest') throw new Error('Application ID bukan identitas APK terpisah'); if(c.name!=='Minta Tolong Uji') throw new Error('Nama APK uji tidak sesuai'); console.log(c.name, c.android.package)"
+
       - name: Pasang EAS CLI
         run: npm install -g eas-cli
 
@@ -47,37 +50,41 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Unduh APK
-        run: |
-          URL=$(node -e "const r=require('./build-result.json'); console.log(Array.isArray(r) ? r[0].artifacts.buildUrl : r.artifacts.buildUrl)")
-          curl -fL "$URL" -o minta-tolong.apk
-
-      
-      - name: Periksa keutuhan APK dan tanda tangan
+      - name: Unduh dan verifikasi APK
         run: |
           set -e
-          test -s minta-tolong.apk
-          unzip -tq minta-tolong.apk
-          unzip -Z1 minta-tolong.apk | grep -qx 'AndroidManifest.xml'
-          unzip -Z1 minta-tolong.apk | grep -Eq '^classes([0-9]+)?\.dex$'
-
-          echo "Ukuran APK:"
-          du -h minta-tolong.apk
-
-          echo "SHA-256:"
-          sha256sum minta-tolong.apk
-
-          echo "Memeriksa tanda tangan APK..."
+          URL=$(node -e "const r=require('./build-result.json'); console.log(Array.isArray(r) ? r[0].artifacts.buildUrl : r.artifacts.buildUrl)")
+          curl -fL "$URL" -o minta-tolong-uji.apk
+          test -s minta-tolong-uji.apk
+          unzip -tq minta-tolong-uji.apk
+          unzip -Z1 minta-tolong-uji.apk | grep -qx 'AndroidManifest.xml'
+          unzip -Z1 minta-tolong-uji.apk | grep -Eq '^classes([0-9]+)?\.dex$'
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           APKSIGNER=$(find "$SDK/build-tools" -type f -name apksigner -print -quit)
           test -n "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs minta-tolong.apk
+          "$APKSIGNER" verify --verbose --print-certs minta-tolong-uji.apk
+          sha256sum minta-tolong-uji.apk | tee apk-sha256.txt
+          du -h minta-tolong-uji.apk
 
+      - name: Buat ZIP cadangan sumber
+        run: |
+          set -e
+          zip -qr minta-tolong-sumber-cadangan.zip . \
+            -x '.git/*' 'node_modules/*' '.expo/*' 'android/.gradle/*' \
+               'ios/Pods/*' 'minta-tolong-uji.apk' 'build-result.json' \
+               'minta-tolong-sumber-cadangan.zip'
+          unzip -tq minta-tolong-sumber-cadangan.zip
+          sha256sum minta-tolong-sumber-cadangan.zip | tee source-zip-sha256.txt
+          du -h minta-tolong-sumber-cadangan.zip
 
-      - name: Simpan APK untuk diunduh
+      - name: Simpan APK dan ZIP cadangan
         uses: actions/upload-artifact@v4
         with:
-          name: minta-tolong-apk
-          path: minta-tolong.apk
+          name: minta-tolong-uji-apk-dan-cadangan
+          path: |
+            minta-tolong-uji.apk
+            minta-tolong-sumber-cadangan.zip
+            apk-sha256.txt
+            source-zip-sha256.txt
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
