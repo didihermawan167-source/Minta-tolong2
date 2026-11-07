@@ -28,8 +28,10 @@ permissions:
 # do not start competing Android emulators at the same time.
 concurrency:
   group: minta-tolong-android-qc
-  # A newer QC run supersedes a stale emulator run instead of waiting forever.
-  cancel-in-progress: true
+  # Never cancel a live Android emulator boot when a follow-up QC commit lands.
+  # Emulator startup is expensive; queue newer commits until the current run
+  # finishes so its diagnostics remain complete and comparable.
+  cancel-in-progress: false
 
 jobs:
   test-apk:
