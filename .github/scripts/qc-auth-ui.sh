@@ -74,6 +74,19 @@ type_field() {
 }
 
 echo "Memulai uji interaksi UI autentikasi tanpa mengirim permintaan ke Supabase."
+
+# Expo Location can request runtime permission on first launch. Resolve the
+# Android permission sheet before attempting to interact with app controls.
+# This is an emulator-only permission grant; it does not submit user data.
+if dump_ui && grep -Eiq 'Allow Minta Tolong to access this device.s location|permission_allow_foreground_only_button' "$R/auth-ui/current.xml"; then
+  tap_label "WHILE USING THE APP" click
+  sleep 3
+  if dump_ui && grep -Fqi 'Allow' "$R/auth-ui/current.xml"; then
+    tap_label "Allow" click
+    sleep 2
+  fi
+fi
+
 assert_text "Masuk"
 assert_text "Daftar"
 adb shell screencap -p /sdcard/auth-login.png >/dev/null
