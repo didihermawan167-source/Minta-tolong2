@@ -44,8 +44,8 @@ fi
 
 test -n "$PACKAGE"
 echo "$PACKAGE" | tee "$R/package.txt"
-if [ "$PACKAGE" != "com.mintatolong.app" ]; then
-  echo "GAGAL: package APK tidak sesuai. Diharapkan com.mintatolong.app, ditemukan $PACKAGE." | tee "$R/QC-RESULT.txt"
+if [ "$PACKAGE" != "com.mintatolong.test" ]; then
+  echo "GAGAL: package APK tidak sesuai. Diharapkan com.mintatolong.test, ditemukan $PACKAGE." | tee "$R/QC-RESULT.txt"
   exit 1
 fi
 if ! adb install -r "$APK" > "$R/install.txt" 2>&1; then
