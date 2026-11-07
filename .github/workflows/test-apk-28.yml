@@ -5,7 +5,7 @@ name: Tim QC AI - Uji APK Otomatis
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, fix/auth-bootstrap-timeout]
     paths:
       - '.github/workflows/test-apk-28.yml'
       - '.github/scripts/qc-emulator.sh'
@@ -50,7 +50,7 @@ jobs:
       - name: Unduh APK dari proses build yang tepat
         uses: actions/download-artifact@v4
         with:
-          name: minta-tolong-apk
+          name: minta-tolong-apk-update
           path: test-results/input
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
