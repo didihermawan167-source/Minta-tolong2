@@ -2,21 +2,9 @@ name: Build APK Minta Tolong
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'lib/**'
-      - 'assets/**'
-      - 'components/**'
-      - 'app.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'eas.json'
-      - 'tsconfig.json'
-      - '.github/workflows/build-apk.yml'
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - 'app/**'
       - 'lib/**'
@@ -35,7 +23,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
@@ -46,45 +34,57 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Siapkan Java untuk Android
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
       - name: Pasang dependensi terkunci
         run: npm ci
 
       - name: Periksa kompatibilitas Expo
         run: npx expo install --check
 
-      - name: Buat proyek Android native
-        run: npx expo prebuild --platform android --clean --no-install
+      - name: Pastikan token EAS tersedia
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN belum tersedia. Build dihentikan agar tidak menghasilkan APK debug yang tidak bisa memperbarui aplikasi lama."
+            exit 1
+          fi
 
-      - name: Bangun APK debug lokal tanpa EAS
-        working-directory: android
-        run: ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Pasang EAS CLI
+        run: npm install --global eas-cli
 
-      - name: Periksa APK
+      - name: Bangun APK bertanda tangan EAS yang sama
+        run: eas build --platform android --profile preview --non-interactive --wait --json > build-result.json
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Unduh APK hasil build
         run: |
           set -euo pipefail
-          APK="android/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
-          unzip -tq "$APK"
-          unzip -Z1 "$APK" | grep -qx 'AndroidManifest.xml'
-          unzip -Z1 "$APK" | grep -Eq '^classes([0-9]+)?\.dex$'
+          URL=$(node -e "const r=require('./build-result.json'); const b=Array.isArray(r)?r[0]:r; console.log(b.artifacts.buildUrl)")
+          test -n "$URL"
+          curl -fL "$URL" -o minta-tolong.apk
+          test -s minta-tolong.apk
+
+      - name: Periksa APK dan identitas tanda tangan
+        run: |
+          set -euo pipefail
+          unzip -tq minta-tolong.apk
+          unzip -Z1 minta-tolong.apk | grep -qx 'AndroidManifest.xml'
+          unzip -Z1 minta-tolong.apk | grep -Eq '^classes([0-9]+)?\.dex$'
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           APKSIGNER=$(find "$SDK/build-tools" -type f -name apksigner -print -quit)
           test -n "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs "$APK"
-          sha256sum "$APK" | tee apk-sha256.txt
-          du -h "$APK"
+          "$APKSIGNER" verify --verbose --print-certs minta-tolong.apk
+          sha256sum minta-tolong.apk | tee apk-sha256.txt
+          du -h minta-tolong.apk
 
       - name: Simpan APK instalasi
         uses: actions/upload-artifact@v4
         with:
           name: minta-tolong-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            minta-tolong.apk
+            apk-sha256.txt
           if-no-files-found: error
           retention-days: 14
 
