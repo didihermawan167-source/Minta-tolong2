@@ -86,6 +86,32 @@ jobs:
           path: test-results/
           if-no-files-found: warn
           retention-days: 14
+      - name: Simpan diagnostik teks terpisah
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: laporan-qc-diagnostik-teks
+          path: |
+            test-results/QC-RESULT.txt
+            test-results/precheck.txt
+            test-results/package.txt
+            test-results/launcher-activity.txt
+            test-results/install.txt
+            test-results/launch.txt
+            test-results/window.xml
+            test-results/activities.txt
+            test-results/windows.txt
+            test-results/activity-processes.txt
+            test-results/app-pid.txt
+            test-results/cpuinfo.txt
+            test-results/meminfo.txt
+            test-results/dropbox-app-anr.txt
+            test-results/dropbox-system-anr.txt
+            test-results/logcat-all.txt
+            test-results/anr-evidence.txt
+            test-results/fatal-errors.txt
+          if-no-files-found: warn
+          retention-days: 14
       - name: Ringkasan laporan
         if: always()
         run: |
