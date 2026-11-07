@@ -10,6 +10,7 @@ on:
       - 'assets/**'
       - 'components/**'
       - 'app.json'
+      - 'app.config.js'
       - 'package.json'
       - 'package-lock.json'
       - 'eas.json'
@@ -18,12 +19,14 @@ on:
   push:
     branches:
       - main
+      - fix/auth-bootstrap-timeout
     paths:
       - 'app/**'
       - 'lib/**'
       - 'assets/**'
       - 'components/**'
       - 'app.json'
+      - 'app.config.js'
       - 'package.json'
       - 'package-lock.json'
       - 'eas.json'
@@ -36,7 +39,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Ambil kode proyek
         uses: actions/checkout@v4
@@ -47,56 +50,74 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Siapkan Java untuk Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Pasang dependensi terkunci
         run: npm ci
 
       - name: Periksa kompatibilitas Expo
         run: npx expo install --check
 
-      - name: Pastikan token EAS tersedia
+      - name: Pastikan identitas APK uji terpisah
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APP_VARIANT: preview
         run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::EXPO_TOKEN belum tersedia. Build dihentikan agar tidak menghasilkan APK debug yang tidak bisa memperbarui aplikasi lama."
-            exit 1
-          fi
+          npx expo config --type public --json > expo-config-preview.json
+          node -e "const c=require('./expo-config-preview.json'); if(c.android?.package !== 'com.mintatolong.app.preview') { console.error('Package preview tidak sesuai:', c.android?.package); process.exit(1); } console.log('Nama:', c.name, '| Package:', c.android.package);"
 
       - name: Pasang EAS CLI
         run: npm install --global eas-cli
 
-      - name: Bangun APK bertanda tangan EAS yang sama
-        run: eas build --platform android --profile preview --non-interactive --wait --json > build-result.json
+      - name: Bangun APK secara lokal tanpa kuota cloud EAS
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Unduh APK hasil build
+          APP_VARIANT: preview
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/eas-local-artifacts
         run: |
           set -euo pipefail
-          URL=$(node -e "const r=require('./build-result.json'); const b=Array.isArray(r)?r[0]:r; console.log(b.artifacts.buildUrl)")
-          test -n "$URL"
-          curl -fL "$URL" -o minta-tolong.apk
-          test -s minta-tolong.apk
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN belum tersedia; build lokal EAS memerlukan autentikasi untuk mengambil kredensial proyek."
+            exit 1
+          fi
+          mkdir -p "$EAS_LOCAL_BUILD_ARTIFACTS_DIR"
+          eas build --platform android --profile preview --local --non-interactive --json > eas-local-build.json
+          APK="$(find "$EAS_LOCAL_BUILD_ARTIFACTS_DIR" -maxdepth 2 -type f -name '*.apk' -print -quit)"
+          if [ -z "$APK" ]; then
+            echo "::error::Build lokal selesai tanpa menghasilkan file APK."
+            find "$EAS_LOCAL_BUILD_ARTIFACTS_DIR" -maxdepth 3 -type f -print || true
+            exit 1
+          fi
+          cp "$APK" minta-tolong-preview.apk
 
-      - name: Periksa APK dan identitas tanda tangan
+      - name: Periksa APK, package, dan tanda tangan
         run: |
           set -euo pipefail
-          unzip -tq minta-tolong.apk
-          unzip -Z1 minta-tolong.apk | grep -qx 'AndroidManifest.xml'
-          unzip -Z1 minta-tolong.apk | grep -Eq '^classes([0-9]+)?\.dex$'
+          test -s minta-tolong-preview.apk
+          unzip -tq minta-tolong-preview.apk
+          unzip -Z1 minta-tolong-preview.apk | grep -qx 'AndroidManifest.xml'
+          unzip -Z1 minta-tolong-preview.apk | grep -Eq '^classes([0-9]+)?\.dex$'
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          AAPT=$(find "$SDK/build-tools" -type f -name aapt -print -quit)
           APKSIGNER=$(find "$SDK/build-tools" -type f -name apksigner -print -quit)
+          test -n "$AAPT"
           test -n "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs minta-tolong.apk
-          sha256sum minta-tolong.apk | tee apk-sha256.txt
-          du -h minta-tolong.apk
+          "$AAPT" dump badging minta-tolong-preview.apk | tee apk-info.txt
+          grep -q "^package: name='com.mintatolong.app.preview'" apk-info.txt
+          "$APKSIGNER" verify --verbose --print-certs minta-tolong-preview.apk
+          sha256sum minta-tolong-preview.apk | tee apk-sha256.txt
+          du -h minta-tolong-preview.apk
 
-      - name: Simpan APK instalasi
+      - name: Simpan APK uji untuk diunduh
         uses: actions/upload-artifact@v4
         with:
-          name: minta-tolong-apk
+          name: minta-tolong-apk-preview
           path: |
-            minta-tolong.apk
+            minta-tolong-preview.apk
+            apk-info.txt
             apk-sha256.txt
           if-no-files-found: error
           retention-days: 14
