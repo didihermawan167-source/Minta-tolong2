@@ -2,11 +2,11 @@
 // Never inherit the temporary ".test" package from an older base-branch config.
 module.exports = ({ config }) => ({
   ...config,
-  name: "Minta Tolong",
+  name: "Minta Tolong Uji",
   slug: "minta-tolong",
-  scheme: "mintatolong",
+  scheme: "mintatolonguji",
   android: {
     ...config.android,
-    package: "com.mintatolong.app",
+    package: "com.mintatolong.test",
   },
 });
